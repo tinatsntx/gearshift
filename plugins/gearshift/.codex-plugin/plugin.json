@@ -1,0 +1,24 @@
+{
+  "name": "gearshift",
+  "version": "0.2.0",
+  "description": "Picks the model and reasoning effort for every Codex subagent, using the OpenAI Decisions API on your own API key.",
+  "keywords": ["codex", "subagents", "routing", "decisions", "model", "reasoning"],
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks.json",
+  "interface": {
+    "displayName": "Gearshift",
+    "shortDescription": "The right model and effort for every subagent.",
+    "longDescription": "Gearshift watches each subagent Codex is about to start and chooses a model and reasoning effort for it, so small jobs run on fast models and hard ones get deep reasoning. Decisions are made by the OpenAI Decisions API using your own API key; your coding work stays on your Codex account.",
+    "developerName": "Gearshift contributors",
+    "category": "Productivity",
+    "capabilities": ["Read"],
+    "defaultPrompt": [
+      "Split this work across subagents and let Gearshift pick the model for each.",
+      "Show me what Gearshift has routed so far."
+    ],
+    "brandColor": "#2563EB",
+    "composerIcon": "./assets/composer-icon.svg",
+    "logo": "./assets/logo.svg",
+    "screenshots": []
+  }
+}

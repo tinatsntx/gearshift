@@ -1,0 +1,53 @@
+{
+  "model": "gpt-6-luna",
+  "usage": {
+    "input_tokens": 0,
+    "input_tokens_details": {
+      "cache_write_tokens": 0,
+      "cached_tokens": 0
+    },
+    "output_tokens": 0,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 0
+  },
+  "answers": [
+    {
+      "type": "choice",
+      "name": "route",
+      "choice": "sol_balanced",
+      "confidence": 0.9,
+      "probabilities": [
+        {
+          "value": "luna_fast",
+          "probability": 0.0
+        },
+        {
+          "value": "luna_careful",
+          "probability": 0.0
+        },
+        {
+          "value": "sol_balanced",
+          "probability": 1.0
+        },
+        {
+          "value": "sol_deep",
+          "probability": 0.0
+        },
+        {
+          "value": "astra_balanced",
+          "probability": 0.0
+        },
+        {
+          "value": "astra_deep",
+          "probability": 0.0
+        },
+        {
+          "value": "abstain",
+          "probability": 0.0
+        }
+      ]
+    }
+  ]
+}

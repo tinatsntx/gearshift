@@ -1,0 +1,32 @@
+{
+  "description": "Gearshift chooses the model and reasoning effort for bounded-context subagent spawns using the OpenAI Decisions API under the user's own API key. PreToolUse is synchronous and may add model and reasoning_effort to spawn_agent arguments; it changes nothing else unless convert_full_forks is enabled. PostToolUse is asynchronous and record-only. Both exit 0 on any failure and never block a spawn. Only the subagent's task prompt (truncated) and agent type are sent; no diffs, files, or parent transcript.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": ".*spawn_agent$|^Agent$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/hooks/pre_tool_use.mjs\"",
+            "timeout": 5,
+            "statusMessage": "Gearshift is choosing a model for this subagent"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": ".*spawn_agent$|^Agent$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/hooks/post_tool_use.mjs\"",
+            "async": true,
+            "timeout": 10,
+            "statusMessage": "Gearshift is recording the spawn"
+          }
+        ]
+      }
+    ]
+  }
+}
