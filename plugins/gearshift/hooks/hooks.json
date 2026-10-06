@@ -1,6 +1,33 @@
 {
-  "description": "Gearshift chooses the model and reasoning effort for bounded-context subagent spawns using the OpenAI Decisions API under the user's own API key. PreToolUse is synchronous and may add model and reasoning_effort to spawn_agent arguments; it changes nothing else unless convert_full_forks is enabled. PostToolUse is asynchronous and record-only. Both exit 0 on any failure and never block a spawn. Only the subagent's task prompt (truncated) and agent type are sent; no diffs, files, or parent transcript.",
+  "description": "Gearshift chooses the model and reasoning effort for subagent spawns using the OpenAI Decisions API under the user's own API key. SessionStart adds a fixed note telling the agent how to delegate so routing applies. PreToolUse is synchronous and may add model and reasoning_effort to spawn_agent arguments; it changes nothing else unless convert_full_forks is enabled. PostToolUse records the spawn. UserPromptSubmit does nothing unless the user turns on include_user_prompt. Every hook exits 0 on any failure and none can block a prompt or a spawn.",
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/hooks/session_start.mjs\"",
+            "timeout": 5,
+            "statusMessage": "Loading Gearshift"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/hooks/user_prompt_submit.mjs\"",
+            "async": true,
+            "timeout": 10,
+            "statusMessage": "Gearshift"
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": ".*spawn_agent$|^Agent$",

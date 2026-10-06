@@ -13,7 +13,8 @@ import { checkCodexConfig, tomlSections } from "../lib/doctor.mjs";
 import { extractAgentId, extractPromptText, isSpawnTool, normalizeHookInput } from "../lib/hookio.mjs";
 import { appendLedger, makeEntry, markSessionNotice, readLedger, summarizeLedger } from "../lib/ledger.mjs";
 import { buildProbeRecord } from "../lib/probe.mjs";
-import { FAKE_KEY, ROOT, SENTINEL, fakeClock, hookInput, tmpDataDir } from "./helpers.mjs";
+import { TURN_MAX_AGE_MS, clearUserPrompts, loadUserPrompt, saveUserPrompt } from "../lib/turns.mjs";
+import { ENCRYPTED_MESSAGE, FAKE_KEY, ROOT, SENTINEL, fakeClock, hookInput, tmpDataDir } from "./helpers.mjs";
 
 // ---- credentials -----------------------------------------------------------
 
@@ -225,13 +226,15 @@ test("hook input: spawn tool names, prompt text, agent ids", () => {
 });
 
 test("probe records shapes and lengths, never task text or results", () => {
-  const raw = hookInput({ message: SENTINEL.repeat(10) }, { tool_response: { agent_id: "a1", text: SENTINEL } });
+  const raw = hookInput({ message: `${SENTINEL} `.repeat(10) }, { tool_response: { agent_id: "a1", text: SENTINEL } });
   const record = buildProbeRecord(raw, { event: "pre_tool_use", env: { PLUGIN_ROOT: "C:\\p", PLUGIN_DATA: "C:\\d", CODEX_HOME: "C:\\c", PATH: "x" } });
   const text = JSON.stringify(record);
   assert.ok(!text.includes(SENTINEL));
-  assert.equal(record.prompt_chars, SENTINEL.length * 10);
+  assert.equal(record.prompt_chars, (SENTINEL.length + 1) * 10);
   assert.equal(record.tool_input_keys.message, "string");
-  assert.deepEqual(record.tool_input_safe_values, { agent_type: "explorer", fork_turns: "none" });
+  assert.deepEqual(record.tool_input_safe_values, { task_name: "find_callers_of_parse_response", fork_turns: "none" });
+  assert.equal(record.message_looks_encrypted, false);
+  assert.equal(buildProbeRecord(hookInput({ message: ENCRYPTED_MESSAGE }), { event: "pre_tool_use", env: {} }).message_looks_encrypted, true);
   assert.deepEqual(record.process.plugin_env_keys, ["CODEX_HOME", "PLUGIN_DATA", "PLUGIN_ROOT"]);
   assert.equal(record.tool_response_shape.text, "string");
 });
@@ -260,13 +263,19 @@ enabled = true
 
 [hooks.state."gearshift@gearshift-local:hooks/hooks.json:post_tool_use:0:0"]
 trusted_hash = "sha256:def"
+
+[hooks.state."gearshift@gearshift-local:hooks/hooks.json:session_start:0:0"]
+trusted_hash = "sha256:ghi"
+
+[hooks.state."gearshift@gearshift-local:hooks/hooks.json:user_prompt_submit:0:0"]
+trusted_hash = "sha256:jkl"
 `;
 
 test("doctor: reads sections and passes a complete config", () => {
   assert.ok(tomlSections(TOML).has('plugins."gearshift@gearshift-local"'));
   const checks = checkCodexConfig(TOML);
   const level = (name) => checks.find((item) => item.name === name)?.level;
-  for (const name of ["subagents enabled", "hooks enabled", "marketplace registered", "plugin installed", "routing hook trusted", "recording hook trusted"]) {
+  for (const name of ["subagents enabled", "hooks enabled", "marketplace registered", "plugin installed", "routing hook trusted", "recording hook trusted", "guidance hook trusted", "prompt hook trusted"]) {
     assert.equal(level(name), "PASS", name);
   }
   assert.equal(level("subagent default"), "INFO");
@@ -278,10 +287,39 @@ test("doctor: flags what is missing or disabled", () => {
   assert.equal(level("", "plugin installed"), "FAIL");
   assert.equal(level("", "routing hook trusted"), "FAIL");
   assert.equal(level("", "recording hook trusted"), "WARN");
+  assert.equal(level("", "guidance hook trusted"), "WARN");
+  assert.equal(level("", "prompt hook trusted"), "WARN");
   assert.equal(level("", "subagents enabled"), "PASS", "on by default");
   assert.equal(level("[features]\nmulti_agent = false\nhooks = false\n", "subagents enabled"), "FAIL");
   assert.equal(level("[features]\nmulti_agent = false\nhooks = false\n", "hooks enabled"), "FAIL");
   assert.equal(level(TOML.replace('[plugins."gearshift@gearshift-local"]\nenabled = true', '[plugins."gearshift@gearshift-local"]\nenabled = false'), "plugin installed"), "FAIL");
   assert.equal(level(TOML.replace('trusted_hash = "sha256:abc"\nenabled = true', 'trusted_hash = "sha256:abc"\nenabled = false'), "routing hook trusted"), "FAIL");
   assert.equal(level(TOML.replace('trusted_hash = "sha256:abc"', ""), "routing hook trusted"), "FAIL");
+});
+
+// ---- saved user prompts ----------------------------------------------------
+
+test("turns: the saved prompt is clipped, scrubbed, per session, and expires", (t) => {
+  const dataDir = tmpDataDir(t);
+  const now = fakeClock();
+  assert.equal(loadUserPrompt({ dataDir, sessionId: "s1", now }), null);
+  assert.equal(saveUserPrompt({ dataDir, sessionId: "s1", prompt: `Fix login. ${FAKE_KEY} ${"q".repeat(6000)}`, maxChars: 4000, now }), true);
+  const saved = loadUserPrompt({ dataDir, sessionId: "s1", now });
+  assert.ok(saved.startsWith("Fix login. [redacted]"));
+  assert.equal(saved.length, 4000);
+  assert.equal(loadUserPrompt({ dataDir, sessionId: "s2", now }), null);
+  assert.equal(saveUserPrompt({ dataDir, sessionId: "", prompt: "x", now }), false);
+  assert.equal(saveUserPrompt({ dataDir, sessionId: "s3", prompt: "   ", now }), false);
+  const files = fs.readdirSync(dataPaths(dataDir).turnsDir);
+  assert.equal(files.length, 1);
+  assert.ok(!files[0].includes("s1"), "the file name does not expose the session id");
+  assert.ok(!fs.readFileSync(path.join(dataPaths(dataDir).turnsDir, files[0]), "utf8").includes(FAKE_KEY));
+
+  now.advance(TURN_MAX_AGE_MS + 1);
+  assert.equal(loadUserPrompt({ dataDir, sessionId: "s1", now }), null);
+  saveUserPrompt({ dataDir, sessionId: "s9", prompt: "new", now });
+  assert.equal(fs.readdirSync(dataPaths(dataDir).turnsDir).length, 1, "expired prompts are pruned on write");
+  clearUserPrompts({ dataDir });
+  assert.equal(fs.existsSync(dataPaths(dataDir).turnsDir), false);
+  assert.doesNotThrow(() => clearUserPrompts({ dataDir }));
 });

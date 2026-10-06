@@ -8,10 +8,11 @@ import os from "node:os";
 import path from "node:path";
 
 import { dataPaths } from "./config.mjs";
+import { looksOpaque } from "./decisions.mjs";
 import { ensureDir, isPlainObject } from "./fsutil.mjs";
 import { extractPromptText, normalizeHookInput } from "./hookio.mjs";
 
-const SAFE_VALUE_KEYS = ["agent_type", "model", "reasoning_effort", "fork_turns", "fork_context"];
+const SAFE_VALUE_KEYS = ["task_name", "agent_type", "model", "reasoning_effort", "fork_turns", "fork_context"];
 
 function typeMap(value) {
   if (!isPlainObject(value)) return Array.isArray(value) ? "array" : value === null ? "null" : typeof value;
@@ -49,6 +50,7 @@ export function buildProbeRecord(raw, { env = process.env, event, extra = {} } =
     tool_input_keys: typeMap(toolInput),
     tool_input_safe_values: safeValues,
     prompt_chars: extractPromptText(toolInput).length,
+    message_looks_encrypted: looksOpaque(extractPromptText(toolInput).trim()),
     tool_response_shape: typeMap(typeof raw?.tool_response === "string" ? { _string_length: raw.tool_response.length } : raw?.tool_response),
     parent_model: hook.parentModel,
     permission_mode: typeof raw?.permission_mode === "string" ? raw.permission_mode : null,

@@ -13,6 +13,8 @@ export const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 export const REPO_ROOT = path.dirname(path.dirname(ROOT));
 export const SENTINEL = "NEVER_ECHO_3f9a";
 export const FAKE_KEY = "sk-test-0000000000000000synthetic";
+// The shape of the encrypted task message newer Codex models hand to the client.
+export const ENCRYPTED_MESSAGE = "gAAAAABqxYY8_EaDtkSFXLeApeCSfgmPjuv_DuQKtNbllvEhi81xZ_rQgzUtoflyNziYSSRJLabFg0QhEzoxKTTWUsnFYZL853RQ==";
 
 export function tmpDataDir(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "gearshift-test-"));
@@ -89,7 +91,7 @@ export function hookInput(toolInput = {}, overrides = {}) {
     permission_mode: "default",
     tool_name: "spawn_agent",
     tool_use_id: "call-1",
-    tool_input: { agent_type: "explorer", fork_turns: "none", message: "Find every caller of parseResponse and list file and line.", ...toolInput },
+    tool_input: { task_name: "find_callers_of_parse_response", fork_turns: "none", message: "Find every caller of parseResponse and list file and line.", ...toolInput },
     ...overrides,
   };
 }

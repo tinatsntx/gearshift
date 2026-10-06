@@ -1,6 +1,7 @@
-// An append-only local record of routing events: what was recommended, what
-// was requested, how long it took, and how many tokens the classification
-// used. It never holds task text, tool arguments, or the key.
+// An append-only local record of routing events: the subagent's task name,
+// what was recommended, what was requested, how long it took, and how many
+// tokens the classification used. It never holds task text, the user's
+// prompt, tool arguments, or the key.
 
 import nodeFs from "node:fs";
 

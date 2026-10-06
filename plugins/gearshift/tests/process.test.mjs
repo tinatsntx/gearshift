@@ -330,3 +330,83 @@ test("cli: catalog reports a missing codex and doctor reads a Codex config", asy
   assert.match(healthy.stdout, /WARN\s+api key/);
   assert.match(healthy.stdout, /No failures\./);
 });
+
+// ---- session guidance and the optional prompt hook -------------------------
+
+const START = path.join(ROOT, "hooks", "session_start.mjs");
+const PROMPT = path.join(ROOT, "hooks", "user_prompt_submit.mjs");
+
+test("session start hook adds the fixed delegation note, unless turned off", async (t) => {
+  const dataDir = tmpDataDir(t);
+  const env = baseEnv(dataDir);
+  const stdin = JSON.stringify({ hook_event_name: "SessionStart", session_id: "s", source: "startup" });
+  const on = await run(START, { stdin, env });
+  assert.deepEqual([on.code, on.stderr], [0, ""]);
+  const output = JSON.parse(on.stdout);
+  assert.deepEqual(Object.keys(output), ["hookSpecificOutput"]);
+  assert.equal(output.hookSpecificOutput.hookEventName, "SessionStart");
+  for (const phrase of ["fork_turns", "task_name", "reasoning_effort", "full-history fork"]) {
+    assert.ok(output.hookSpecificOutput.additionalContext.includes(phrase), phrase);
+  }
+  assert.ok(output.hookSpecificOutput.additionalContext.length < 2000, "well under the context limit");
+  assert.equal(JSON.parse((await run(START, { stdin: "", env })).stdout).hookSpecificOutput.hookEventName, "SessionStart");
+
+  fs.writeFileSync(dataPaths(dataDir).config, JSON.stringify({ session_guidance: false }));
+  assert.equal((await run(START, { stdin, env })).stdout, "");
+  fs.writeFileSync(dataPaths(dataDir).config, JSON.stringify({ mode: "off" }));
+  assert.equal((await run(START, { stdin, env })).stdout, "");
+});
+
+test("prompt hook stores nothing by default; when enabled the routing hook sends the request", async (t) => {
+  const dataDir = tmpDataDir(t);
+  const server = await fakeServer(t, () => ({ status: 200, json: answer("sol_deep", 0.9) }));
+  const env = baseEnv(dataDir, { GEARSHIFT_OPENAI_API_KEY: FAKE_KEY, GEARSHIFT_DECISIONS_ENDPOINT: server.url });
+  const prompt = JSON.stringify({ hook_event_name: "UserPromptSubmit", session_id: "sess-1", prompt: `Rework the billing module. ${FAKE_KEY}` });
+
+  const off = await run(PROMPT, { stdin: prompt, env });
+  assert.deepEqual([off.code, off.stdout, off.stderr], [0, "", ""]);
+  assert.equal(fs.existsSync(dataPaths(dataDir).turnsDir), false, "nothing is stored unless the user opts in");
+  await run(PRE, { stdin: JSON.stringify(hookInput()), env });
+  assert.ok(!JSON.stringify(server.requests[0].body).includes("billing module"));
+
+  fs.writeFileSync(dataPaths(dataDir).config, JSON.stringify({ include_user_prompt: true }));
+  const on = await run(PROMPT, { stdin: prompt, env });
+  assert.deepEqual([on.code, on.stdout, on.stderr], [0, "", ""]);
+  assert.equal(fs.readdirSync(dataPaths(dataDir).turnsDir).length, 1);
+  await run(PRE, { stdin: JSON.stringify(hookInput({ task_name: "rework_billing_module" })), env });
+  const sent = server.requests[1].body.input;
+  assert.ok(sent.includes("user_request:\nRework the billing module."));
+  assert.ok(!sent.includes(FAKE_KEY));
+  const rows = ledger(dataDir);
+  assert.equal(rows[1].user_request_sent, true);
+  assert.ok(!fs.readFileSync(dataPaths(dataDir).ledger, "utf8").includes("billing module"));
+
+  await run(PRE, { stdin: JSON.stringify(hookInput({ task_name: "other" }, { session_id: "another-session" })), env });
+  assert.ok(!server.requests[2].body.input.includes("user_request:"), "a prompt is only used for its own session");
+
+  for (const bad of ["", "nope", JSON.stringify({ session_id: "x" })]) {
+    const result = await run(PROMPT, { stdin: bad, env });
+    assert.deepEqual([result.code, result.stdout, result.stderr], [0, "", ""]);
+  }
+  const cleared = await cli(["config", "set", "include_user_prompt", "false"], env);
+  assert.equal(cleared.code, 0);
+  assert.equal(fs.existsSync(dataPaths(dataDir).turnsDir), false, "turning the setting off deletes saved prompts");
+});
+
+test("cli: route by task name, with an optional request that respects the setting", async (t) => {
+  const dataDir = tmpDataDir(t);
+  const server = await fakeServer(t, () => ({ status: 200, json: answer("luna_fast", 0.95) }));
+  const env = baseEnv(dataDir, { GEARSHIFT_OPENAI_API_KEY: FAKE_KEY, GEARSHIFT_DECISIONS_ENDPOINT: server.url });
+  const named = JSON.parse((await cli(["route", "--json", "--task-name", "rename_config_key_in_two_files"], env)).stdout);
+  assert.deepEqual([named.source, named.preset, named.api_called], ["decisions", "luna_fast", true]);
+  assert.ok(server.requests[0].body.input.startsWith("task_name: rename_config_key_in_two_files"));
+  const text = await cli(["route", "--task-name", "second_task", "--user-request", "Tidy up the config names."], env);
+  assert.match(text.stdout, /--user-request was not sent because include_user_prompt is off/);
+  assert.ok(!server.requests[1].body.input.includes("Tidy up"));
+  fs.writeFileSync(dataPaths(dataDir).config, JSON.stringify({ include_user_prompt: true }));
+  await cli(["route", "--task-name", "third_task", "--user-request", "Tidy up the config names."], env);
+  assert.ok(server.requests[2].body.input.includes("user_request:\nTidy up the config names."));
+  const status = await cli(["status"], env);
+  assert.match(status.stdout, /third_task/);
+  assert.ok(!status.stdout.includes("Tidy up"));
+});

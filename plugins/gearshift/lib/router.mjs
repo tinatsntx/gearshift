@@ -4,11 +4,16 @@
 // "passthrough": Codex runs the spawn exactly as the parent wrote it.
 // A fallback is always labeled as a fallback and is never presented as a
 // Decisions result.
+//
+// What the decision is based on: the subagent's task name always; its task
+// text only when Codex leaves that readable (newer models hand the client an
+// encrypted message, which is never sent anywhere); and the user's latest
+// prompt only when the user has turned include_user_prompt on.
 
 import { cacheKey, getCached, putCached } from "./cache.mjs";
 import {
   ABSTAIN, ENDPOINT, PROMPT_VERSION, ProviderError, buildInputText, buildRequest, decide,
-  parseResponse, redactSecrets, truncatePrompt, usageFrom,
+  looksOpaque, parseResponse, redactSecrets, truncatePrompt, usageFrom,
 } from "./decisions.mjs";
 import { allowWithUpdatedInput, extractPromptText, isSpawnTool, normalizeHookInput, systemMessageOnly } from "./hookio.mjs";
 import { buildUpdatedInput, eligiblePresets, forkMode, isPinned, pickFallback, presetById } from "./presets.mjs";
@@ -19,6 +24,8 @@ export const REASONS = [
   "selected", "abstain", "low_confidence", "refusal", "timeout", "api_auth", "access_denied",
   "rate_limited", "api_unavailable", "invalid_response", "request_too_large", "internal_error",
 ];
+
+const nonEmpty = (value) => (typeof value === "string" && value.trim() !== "" ? value.trim() : null);
 
 function notice(reason, { preset, cliCommand }) {
   const using = preset ? ` Using local default ${preset.id} (${preset.model}, ${preset.effort}).` : "";
@@ -38,16 +45,17 @@ function notice(reason, { preset, cliCommand }) {
 
 /**
  * deps: { config, catalog, credential, cache, transport, endpoint, now,
- *         firstNotice(kind) => boolean, cliCommand }
+ *         firstNotice(kind) => boolean, cliCommand, userRequest }
  * Returns { output, entry, decision, cacheDirty }.
  *   output      the hook result to print, or null to leave the spawn unchanged
- *   entry       a ledger row (content-free), or null when the tool is not a spawn
+ *   entry       a ledger row, or null when the tool is not a spawn
  *   decision    the same facts for callers that print them
  */
 export async function routeSpawn(hookInput, deps) {
   const {
     config, catalog = null, credential = null, cache = null, transport = null,
     endpoint = ENDPOINT, now = Date.now, firstNotice = () => false, cliCommand = "gearshift",
+    userRequest = null,
   } = deps;
   const hook = normalizeHookInput(hookInput);
   if (!isSpawnTool(hook.toolName)) {
@@ -58,13 +66,15 @@ export async function routeSpawn(hookInput, deps) {
   const toolInput = hook.toolInput ?? {};
   const mode = forkMode(toolInput);
   const dryRun = config.mode === "dry_run";
+  // Newer Codex names a subagent with task_name; older builds used agent_type.
+  const taskName = nonEmpty(toolInput.task_name) ?? nonEmpty(toolInput.agent_type);
   const base = {
     event: "pre_tool_use",
     session_id: hook.sessionId,
     turn_id: hook.turnId,
     tool_use_id: hook.toolUseId,
     tool_name: hook.toolName,
-    agent_type: typeof toolInput.agent_type === "string" ? toolInput.agent_type : null,
+    task_name: taskName ? taskName.slice(0, 80) : null,
     fork_mode: mode,
     requested_model: typeof toolInput.model === "string" ? toolInput.model : null,
     requested_effort: typeof toolInput.reasoning_effort === "string" ? toolInput.reasoning_effort : null,
@@ -82,14 +92,13 @@ export async function routeSpawn(hookInput, deps) {
     const text = notice(reason, { preset, cliCommand });
     if (text && !dryRun && firstNotice(reason)) systemMessage = text;
 
+    const updatedInput = status === "routed" && preset
+      ? buildUpdatedInput(toolInput, preset, { convert, forkTurnsValue: config.convert_full_forks_to })
+      : null;
     let output = null;
     if (!dryRun) {
-      if (status === "routed" && preset) {
-        const updated = buildUpdatedInput(toolInput, preset, { convert, forkTurnsValue: config.convert_full_forks_to });
-        output = allowWithUpdatedInput(updated, { systemMessage });
-      } else if (systemMessage) {
-        output = systemMessageOnly(systemMessage);
-      }
+      if (updatedInput) output = allowWithUpdatedInput(updatedInput, { systemMessage });
+      else if (systemMessage) output = systemMessageOnly(systemMessage);
     }
     const entry = {
       ...base,
@@ -110,9 +119,7 @@ export async function routeSpawn(hookInput, deps) {
     };
     const decision = {
       status, source, reason, preset, confidence, latencyMs, usage, apiCalled, forkMode: mode,
-      dryRun, systemMessage, updatedInput: status === "routed" && preset
-        ? buildUpdatedInput(toolInput, preset, { convert, forkTurnsValue: config.convert_full_forks_to })
-        : null,
+      dryRun, systemMessage, updatedInput, details,
     };
     return { output, entry, decision, cacheDirty };
   };
@@ -135,17 +142,24 @@ export async function routeSpawn(hookInput, deps) {
 
     if (!credential) return fallback("no_credential");
 
-    const rawPrompt = config.send_prompt_text ? extractPromptText(toolInput) : "";
-    const clipped = truncatePrompt(redactSecrets(rawPrompt), config.prompt_max_chars);
-    details.prompt_chars = clipped.originalChars;
+    const rawMessage = extractPromptText(toolInput).trim();
+    const readable = rawMessage !== "" && !looksOpaque(rawMessage);
+    details.message_readable = readable;
+    const clipped = truncatePrompt(redactSecrets(config.send_prompt_text && readable ? rawMessage : ""), config.prompt_max_chars);
+    details.prompt_chars_sent = clipped.text.length;
     details.prompt_truncated = clipped.truncated;
-    if (config.send_prompt_text && clipped.text.trim() === "") return fallback("no_task_text");
+    const request = config.include_user_prompt === true && nonEmpty(userRequest)
+      ? truncatePrompt(redactSecrets(userRequest.trim()), config.prompt_max_chars).text
+      : null;
+    details.user_request_sent = request !== null;
+    if (!taskName && clipped.text === "" && request === null) return fallback("no_task_text");
 
     const inputText = buildInputText({
-      agentType: base.agent_type,
+      taskName,
       parentModel: hook.parentModel,
       optimizationGoal: config.optimization_goal,
-      promptText: config.send_prompt_text ? clipped.text : null,
+      promptText: clipped.text,
+      userRequest: request,
     });
     const key = cacheKey({
       inputText,

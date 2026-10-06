@@ -67,8 +67,18 @@ test("the routing hook is synchronous, bounded, and targets spawns only", () => 
   assert.equal(post.matcher, pre[0].matcher);
   assert.equal(post.hooks[0].async, true);
   assert.equal(post.hooks[0].command, 'node "${PLUGIN_ROOT}/hooks/post_tool_use.mjs"');
-  assert.deepEqual(Object.keys(hooks.hooks).sort(), ["PostToolUse", "PreToolUse"]);
-  for (const script of ["pre_tool_use.mjs", "post_tool_use.mjs"]) assert.ok(fs.existsSync(path.join(ROOT, "hooks", script)));
+  assert.deepEqual(Object.keys(hooks.hooks).sort(), ["PostToolUse", "PreToolUse", "SessionStart", "UserPromptSubmit"]);
+  for (const script of ["pre_tool_use.mjs", "post_tool_use.mjs", "session_start.mjs", "user_prompt_submit.mjs"]) assert.ok(fs.existsSync(path.join(ROOT, "hooks", script)));
+  const start = hooks.hooks.SessionStart[0].hooks[0];
+  assert.equal(start.command, 'node "${PLUGIN_ROOT}/hooks/session_start.mjs"');
+  assert.notEqual(start.async, true, "session guidance must be synchronous to reach the model");
+  const prompt = hooks.hooks.UserPromptSubmit[0].hooks[0];
+  assert.equal(prompt.command, 'node "${PLUGIN_ROOT}/hooks/user_prompt_submit.mjs"');
+  assert.equal(prompt.async, true, "the prompt hook must never delay a prompt");
+  for (const group of Object.values(hooks.hooks)) {
+    assert.equal(group.length, 1, "hook trust keys assume one group and one command per event");
+    assert.equal(group[0].hooks.length, 1);
+  }
 });
 
 test("the local marketplace points at this plugin", () => {
@@ -85,7 +95,7 @@ test("the local marketplace points at this plugin", () => {
 test("the skill tells the parent how to spawn so routing applies", () => {
   const skill = fs.readFileSync(path.join(ROOT, "skills", "gearshift", "SKILL.md"), "utf8");
   assert.match(skill, /^---\nname: gearshift\ndescription: .+\n---\n/);
-  for (const phrase of ["fork_turns", '"none"', "gearshift connect", "gearshift status", "reasoning_effort", "/hooks"]) {
+  for (const phrase of ["fork_turns", '"none"', "task_name", "gearshift connect", "gearshift status", "reasoning_effort", "/hooks"]) {
     assert.ok(skill.includes(phrase), phrase);
   }
 });

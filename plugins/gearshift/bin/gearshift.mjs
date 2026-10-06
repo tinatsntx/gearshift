@@ -24,6 +24,7 @@ import { MARKETPLACE, PLUGIN_ID, checkCodexConfig } from "../lib/doctor.mjs";
 import { ensureDir, readJsonFile } from "../lib/fsutil.mjs";
 import { appendLedger, readLedger, summarizeLedger } from "../lib/ledger.mjs";
 import { routeSpawn } from "../lib/router.mjs";
+import { clearUserPrompts } from "../lib/turns.mjs";
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const VERSION = readJsonFile(path.join(ROOT, "package.json"))?.version ?? "unknown";
@@ -32,6 +33,11 @@ const BOOLEAN_FLAGS = new Set(["json", "offline", "bundled", "stdin", "no-verify
 const BILLING_NOTE =
   `Decisions calls bill this key at $${PRICE_USD_PER_MILLION_INPUT_TOKENS.toFixed(2)} per 1M input tokens. ` +
   "Codex coding work stays on your Codex account.";
+
+const DATA_NOTE =
+  "Each routing call sends the subagent's task name and your parent model's name. It sends the " +
+  "subagent's task text only when Codex leaves that readable, and the message you typed to Codex " +
+  "only if you turn on include_user_prompt. It never sends files, diffs, or the conversation.";
 
 const HELP = `Gearshift ${VERSION}: automatic model and reasoning effort for Codex subagents
 
@@ -48,9 +54,9 @@ Usage: gearshift <command> [options]
   catalog      Refresh the model list from Codex (codex debug models)
                  --bundled  --json
   route        Decide for one task without spawning anything
-                 --message TEXT  [--agent-type T] [--fork-turns none|all|N]
-                 [--model M] [--reasoning-effort E] [--parent-model M]
-                 [--offline] [--json]
+                 --task-name NAME  [--message TEXT] [--user-request TEXT]
+                 [--fork-turns none|all|N] [--model M] [--reasoning-effort E]
+                 [--parent-model M] [--offline] [--json]
   doctor       Check the Codex install, hook trust, key, and catalog
   config       Print the config; "config init" writes defaults;
                "config set <key> <value>" changes one setting
@@ -197,6 +203,7 @@ async function commandConnect(flags, dataDir) {
     if (!nodeFs.existsSync(dataPaths(dataDir).config)) writeDefaultConfig({ dataDir });
     out(`Connected to your OpenAI API project (key ...${saved.last4}).`);
     out(BILLING_NOTE);
+    out(DATA_NOTE);
     out(`Saved to ${saved.path}`);
     try {
       const catalog = refreshCatalog({ dataDir });
@@ -214,6 +221,7 @@ async function commandConnect(flags, dataDir) {
 function commandDisconnect(dataDir) {
   const removed = deleteCredential({ dataDir });
   clearCache({ dataDir });
+  clearUserPrompts({ dataDir });
   out(removed ? "Disconnected. The saved key and the local cache were deleted." : "No saved key was found.");
   if (process.env[KEY_ENV]) out(`Note: ${KEY_ENV} is still set in this environment and will be used.`);
   return 0;
@@ -265,11 +273,11 @@ function commandStatus(flags, dataDir) {
     return 0;
   }
   out("Recent");
-  out(`  ${pad("time", 21)}${pad("agent", 12)}${pad("result", 13)}${pad("source", 17)}${pad("reason", 27)}${pad("preset", 16)}${pad("ms", 7)}tokens`);
+  out(`  ${pad("time", 21)}${pad("task", 34)}${pad("result", 13)}${pad("source", 17)}${pad("reason", 27)}${pad("preset", 16)}${pad("ms", 7)}tokens`);
   for (const entry of recent) {
     const time = String(entry.ts ?? "").replace("T", " ").slice(0, 19);
     const result = entry.dry_run ? `${entry.status}*` : entry.status;
-    out(`  ${pad(time, 21)}${pad(entry.agent_type, 12)}${pad(result, 13)}${pad(entry.source, 17)}${pad(entry.reason, 27)}${pad(entry.preset, 16)}${pad(entry.latency_ms, 7)}${entry.input_tokens ?? "-"}`);
+    out(`  ${pad(time, 21)}${pad(entry.task_name, 34)}${pad(result, 13)}${pad(entry.source, 17)}${pad(entry.reason, 27)}${pad(entry.preset, 16)}${pad(entry.latency_ms, 7)}${entry.input_tokens ?? "-"}`);
   }
   if (recent.some((entry) => entry.dry_run)) out("  * decided but not applied (dry run or a CLI test)");
   return 0;
@@ -304,12 +312,15 @@ function commandCatalog(flags, dataDir) {
 }
 
 async function commandRoute(flags, dataDir) {
-  if (typeof flags.message !== "string" || flags.message.trim() === "") throw new UsageError('route needs --message "the task text"');
+  const has = (name) => typeof flags[name] === "string" && flags[name].trim() !== "";
+  if (!has("task-name") && !has("message")) throw new UsageError("route needs --task-name some_descriptive_name (and optionally --message TEXT)");
   const { config } = loadConfig({ dataDir });
   const { catalog } = loadCatalog({ dataDir, maxAgeMs: config.catalog_max_age_hours * 3600 * 1000 });
   const credential = flags.offline ? null : loadCredential({ dataDir });
   const cache = loadCache({ dataDir });
-  const toolInput = { agent_type: flags["agent-type"] ?? "default", message: flags.message };
+  const toolInput = {};
+  if (has("task-name")) toolInput.task_name = flags["task-name"];
+  if (has("message")) toolInput.message = flags.message;
   const forkTurns = flags["fork-turns"] ?? "none";
   if (forkTurns !== "omit") toolInput.fork_turns = forkTurns;
   if (flags.model) toolInput.model = flags.model;
@@ -330,6 +341,7 @@ async function commandRoute(flags, dataDir) {
     transport: createHttpsTransport(),
     endpoint: resolveEndpoint(),
     firstNotice: () => true,
+    userRequest: has("user-request") ? flags["user-request"] : null,
   });
   if (cacheDirty) saveCache({ dataDir, cache });
   if (entry) appendLedger({ dataDir, entry: { ...entry, event: "cli_route", dry_run: true } });
@@ -353,6 +365,9 @@ async function commandRoute(flags, dataDir) {
   if (decision.confidence !== null) out(`  confidence  ${decision.confidence.toFixed(2)}`);
   out(`  time        ${decision.latencyMs} ms`);
   if (decision.usage?.input_tokens != null) out(`  tokens      ${decision.usage.input_tokens} input (about ${money(estimateCostUsd(decision.usage.input_tokens))})`);
+  if (has("user-request") && decision.details?.user_request_sent === false && decision.apiCalled) {
+    out("  note        --user-request was not sent because include_user_prompt is off");
+  }
   if (decision.systemMessage) out(`  note        ${decision.systemMessage}`);
   out("Nothing was spawned.");
   return 0;
@@ -450,6 +465,7 @@ function commandConfig(positional, dataDir) {
       return 1;
     }
     out(`Set ${key} in ${writeConfig({ dataDir, raw })}`);
+    if (key === "include_user_prompt" && value !== true) clearUserPrompts({ dataDir });
     return 0;
   }
   if (action === "print") {

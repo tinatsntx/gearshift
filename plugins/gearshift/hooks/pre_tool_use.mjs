@@ -18,6 +18,7 @@ import { isSpawnTool, readStdinJson, runHook, writeHookOutput } from "../lib/hoo
 import { appendLedger, markSessionNotice } from "../lib/ledger.mjs";
 import { buildProbeRecord, probeEnabled, writeProbe } from "../lib/probe.mjs";
 import { routeSpawn } from "../lib/router.mjs";
+import { loadUserPrompt } from "../lib/turns.mjs";
 
 const CLI_PATH = path.join(path.dirname(path.dirname(fileURLToPath(import.meta.url))), "bin", "gearshift.mjs");
 
@@ -40,6 +41,7 @@ runHook(async () => {
     transport: createHttpsTransport(),
     endpoint: resolveEndpoint(),
     firstNotice: (kind) => markSessionNotice({ dataDir, id: `${sessionId}:${kind}` }),
+    userRequest: config.include_user_prompt === true ? loadUserPrompt({ dataDir, sessionId }) : null,
     cliCommand: `node "${CLI_PATH}"`,
   });
 

@@ -57,9 +57,14 @@ export function checkCodexConfig(tomlText, { pluginId = PLUGIN_ID, marketplace =
   else if (value(plugin, "enabled") === "false") checks.push(check("FAIL", "plugin installed", "plugin is installed but disabled"));
   else checks.push(check("PASS", "plugin installed", `[plugins."${pluginId}"] enabled`));
 
-  for (const [event, label] of [["pre_tool_use", "routing hook trusted"], ["post_tool_use", "recording hook trusted"]]) {
+  const hookChecks = [
+    ["pre_tool_use", "routing hook trusted", "FAIL"],
+    ["session_start", "guidance hook trusted", "WARN"],
+    ["post_tool_use", "recording hook trusted", "WARN"],
+    ["user_prompt_submit", "prompt hook trusted", "WARN"],
+  ];
+  for (const [event, label, level] of hookChecks) {
     const state = sections.get(`hooks.state."${pluginId}:hooks/hooks.json:${event}:0:0"`);
-    const level = event === "pre_tool_use" ? "FAIL" : "WARN";
     if (!state || !value(state, "trusted_hash")) {
       checks.push(check(level, label, "not trusted yet; open Codex, type /hooks, and trust the Gearshift hooks"));
     } else if (value(state, "enabled") === "false") {

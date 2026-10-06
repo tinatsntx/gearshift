@@ -5,7 +5,7 @@ import { ABSTAIN } from "../lib/decisions.mjs";
 import { makeEntry } from "../lib/ledger.mjs";
 import { DEFAULT_PRESETS } from "../lib/presets.mjs";
 import { REASONS, routeSpawn } from "../lib/router.mjs";
-import { FAKE_KEY, SENTINEL, answer, config, deps, fakeClock, fakeTransport, hookInput, refusal } from "./helpers.mjs";
+import { ENCRYPTED_MESSAGE, FAKE_KEY, SENTINEL, answer, config, deps, fakeClock, fakeTransport, hookInput, refusal } from "./helpers.mjs";
 
 const TASK = "Find every caller of parseResponse and list file and line.";
 
@@ -45,18 +45,21 @@ test("a selected preset adds only model and effort to the spawn", async () => {
   );
   assert.equal(result.entry.fork_mode, "bounded");
   assert.equal(result.entry.parent_model, "gpt-6.1-sol");
-  assert.deepEqual(result.entry.tool_input_keys, ["agent_type", "fork_turns", "message"]);
+  assert.deepEqual(result.entry.tool_input_keys, ["fork_turns", "message", "task_name"]);
+  assert.equal(result.entry.task_name, "find_callers_of_parse_response");
+  assert.equal(result.entry.message_readable, true);
   assert.equal(result.cacheDirty, true);
   assertClean(result);
 });
 
-test("only the task text, agent type, parent model, and goal leave the machine", async () => {
+test("only the task name, readable task text, parent model, and goal leave the machine", async () => {
   const transport = fakeTransport(answer());
   await routeSpawn(hookInput(), deps({ transport }));
   const sent = transport.calls[0].body;
   const body = JSON.parse(sent);
   assert.ok(body.input.includes(TASK));
-  assert.ok(body.input.includes("agent_type: explorer"));
+  assert.ok(body.input.includes("task_name: find_callers_of_parse_response"));
+  assert.ok(!body.input.includes("user_request:"));
   for (const leaked of ["transcript", "secret", "sess-1", "call-1", "turn-1", "cwd"]) assert.ok(!sent.includes(leaked), leaked);
   assert.equal(transport.calls[0].headers.authorization, `Bearer ${FAKE_KEY}`);
 });
@@ -77,6 +80,53 @@ test("send_prompt_text false sends no task text", async () => {
   const body = JSON.parse(transport.calls[0].body);
   assert.ok(!body.input.includes(TASK));
   assert.ok(!body.input.includes("task:"));
+});
+
+test("an encrypted task message is never sent; routing uses the task name", async () => {
+  const transport = fakeTransport(answer("luna_fast", 0.9));
+  const result = await routeSpawn(hookInput({ message: ENCRYPTED_MESSAGE }), deps({ transport }));
+  const sent = transport.calls[0].body;
+  assert.ok(!sent.includes(ENCRYPTED_MESSAGE));
+  assert.ok(!sent.includes("gAAAAA"));
+  const body = JSON.parse(sent);
+  assert.ok(body.input.includes("task_name: find_callers_of_parse_response"));
+  assert.ok(!body.input.includes("task:"));
+  assert.deepEqual([result.entry.message_readable, result.entry.prompt_chars_sent, result.entry.preset], [false, 0, "luna_fast"]);
+  // The encrypted message is passed through to Codex untouched.
+  assert.equal(result.output.hookSpecificOutput.updatedInput.message, ENCRYPTED_MESSAGE);
+  assert.ok(!JSON.stringify(result.entry).includes("gAAAAA"));
+});
+
+test("the user's prompt is sent only when include_user_prompt is on", async () => {
+  const request = `Please fix the login bug. My key is ${FAKE_KEY}.`;
+  const off = fakeTransport(answer());
+  const offResult = await routeSpawn(hookInput({ message: ENCRYPTED_MESSAGE }), deps({ transport: off, userRequest: request }));
+  assert.ok(!off.calls[0].body.includes("login bug"));
+  assert.equal(offResult.entry.user_request_sent, false);
+
+  const on = fakeTransport(answer());
+  const onResult = await routeSpawn(hookInput({ message: ENCRYPTED_MESSAGE }), deps({ transport: on, userRequest: request, config: config({ include_user_prompt: true }) }));
+  const body = JSON.parse(on.calls[0].body);
+  assert.ok(body.input.includes("user_request:\nPlease fix the login bug."));
+  assert.ok(!body.input.includes(FAKE_KEY), "key-shaped strings are removed");
+  assert.equal(onResult.entry.user_request_sent, true);
+  assert.ok(!JSON.stringify(onResult.entry).includes("login bug"), "the prompt is never written to the ledger");
+
+  const none = fakeTransport(answer());
+  const noneResult = await routeSpawn(hookInput(), deps({ transport: none, userRequest: null, config: config({ include_user_prompt: true }) }));
+  assert.equal(noneResult.entry.user_request_sent, false);
+});
+
+test("older Codex builds that send agent_type instead of task_name still route", async () => {
+  const transport = fakeTransport(answer());
+  const result = await routeSpawn(hookInput({ task_name: undefined, agent_type: "explorer", fork_context: false, fork_turns: undefined }), deps({ transport }));
+  assert.equal(result.entry.fork_mode, "full", "an explicit undefined fork_turns key still reads as a full fork");
+  const legacy = hookInput({ agent_type: "explorer", fork_context: false });
+  delete legacy.tool_input.task_name;
+  delete legacy.tool_input.fork_turns;
+  const routed = await routeSpawn(legacy, deps({ transport }));
+  assert.equal(routed.entry.task_name, "explorer");
+  assert.ok(JSON.parse(transport.calls[0].body).input.includes("task_name: explorer"));
 });
 
 test("pinned, full-history, unknown-fork, and off all leave the spawn untouched without a call", async () => {
@@ -174,14 +224,19 @@ test("a missing catalog is flagged and all presets are offered", async () => {
   assert.equal(JSON.parse(transport.calls[0].body).questions[0].choices.length, DEFAULT_PRESETS.length + 1);
 });
 
-test("an empty task falls back without a call", async () => {
+test("with nothing to go on, the local default is used without a call", async () => {
   const transport = fakeTransport();
-  const result = await routeSpawn(hookInput({ message: "   " }), deps({ transport }));
-  assert.deepEqual([result.entry.source, result.entry.reason], ["fallback", "no_task_text"]);
+  const input = hookInput({ message: ENCRYPTED_MESSAGE });
+  delete input.tool_input.task_name;
+  const result = await routeSpawn(input, deps({ transport }));
+  assert.deepEqual([result.entry.source, result.entry.reason, result.entry.task_name], ["fallback", "no_task_text", null]);
+  assert.equal(transport.calls.length, 0);
+  const blank = hookInput({ message: "   ", task_name: "  " });
+  assert.equal((await routeSpawn(blank, deps({ transport }))).entry.reason, "no_task_text");
   assert.equal(transport.calls.length, 0);
 });
 
-test("the cache serves repeats, expires, and is keyed by task, agent type, candidates, and account", async () => {
+test("the cache serves repeats, expires, and is keyed by task text, task name, candidates, and account", async () => {
   const now = fakeClock();
   const cache = { entries: {} };
   const transport = fakeTransport(answer("luna_careful", 0.8));
@@ -194,7 +249,7 @@ test("the cache serves repeats, expires, and is keyed by task, agent type, candi
   assert.equal(transport.calls.length, 1);
 
   await routeSpawn(hookInput({ message: "A different task entirely." }), deps(shared));
-  await routeSpawn(hookInput({ agent_type: "worker" }), deps(shared));
+  await routeSpawn(hookInput({ task_name: "another_task" }), deps(shared));
   await routeSpawn(hookInput(), deps({ ...shared, config: config({ allowed_models: ["gpt-6-luna", "gpt-6.1-sol"] }) }));
   await routeSpawn(hookInput(), deps({ ...shared, credential: { key: FAKE_KEY, fingerprint: "ffff000011112222", last4: "etic" } }));
   assert.equal(transport.calls.length, 5, "each variation is a cache miss");

@@ -5,11 +5,11 @@ import test from "node:test";
 
 import {
   ABSTAIN, DECISIONS_MODEL, ENDPOINT, MAX_REQUEST_BYTES, ProviderError, buildInputText, buildRequest,
-  buildVerifyRequest, canonical, decide, describeShape, estimateCostUsd, parseChoiceAnswer, parseResponse,
+  buildVerifyRequest, canonical, decide, describeShape, estimateCostUsd, looksOpaque, parseChoiceAnswer, parseResponse,
   redactSecrets, resolveEndpoint, strictJson, truncatePrompt, usageFrom,
 } from "../lib/decisions.mjs";
 import { DEFAULT_PRESETS } from "../lib/presets.mjs";
-import { FAKE_KEY, ROOT, SENTINEL, answer, fakeTransport, refusal } from "./helpers.mjs";
+import { ENCRYPTED_MESSAGE, FAKE_KEY, ROOT, SENTINEL, answer, fakeTransport, refusal } from "./helpers.mjs";
 
 const fixture = (name) => JSON.parse(fs.readFileSync(path.join(ROOT, "fixtures", name), "utf8"));
 const invalid = (value, options) => assert.throws(() => parseResponse(value, DEFAULT_PRESETS, options), (error) => {
@@ -111,16 +111,29 @@ test("default mode tolerates omitted zero-probability entries; strict does not",
 });
 
 test("the request contains only the model, the input text, and one choice question", () => {
-  const inputText = buildInputText({ agentType: "explorer", parentModel: "gpt-6.1-sol", optimizationGoal: "balanced", promptText: "List the callers." });
+  const inputText = buildInputText({ taskName: "list_callers", parentModel: "gpt-6.1-sol", optimizationGoal: "balanced", promptText: "List the callers." });
   const body = buildRequest({ inputText, candidates: DEFAULT_PRESETS.slice(2, 4) });
   assert.deepEqual(Object.keys(body).sort(), ["input", "model", "questions"]);
   assert.equal(body.model, DECISIONS_MODEL);
   assert.equal(body.questions.length, 1);
   assert.deepEqual(body.questions[0].choices.map((choice) => choice.value), ["sol_balanced", "sol_deep", ABSTAIN]);
-  assert.equal(body.input, "agent_type: explorer\nparent_model: gpt-6.1-sol\noptimization_goal: balanced\ntask:\nList the callers.");
-  const withoutText = buildInputText({ agentType: "explorer", parentModel: null, promptText: null });
+  assert.equal(body.input, "task_name: list_callers\nparent_model: gpt-6.1-sol\noptimization_goal: balanced\ntask:\nList the callers.");
+  const withoutText = buildInputText({ taskName: "list_callers", parentModel: null, promptText: "" });
   assert.ok(!withoutText.includes("task:"));
+  assert.ok(!withoutText.includes("user_request:"));
   assert.ok(withoutText.includes("parent_model: unknown"));
+  assert.ok(buildInputText({ parentModel: "m" }).startsWith("task_name: unnamed"));
+  const withRequest = buildInputText({ taskName: "t", parentModel: "m", userRequest: "Please fix the login bug." });
+  assert.ok(withRequest.endsWith("user_request:\nPlease fix the login bug."));
+  assert.equal(buildInputText({ taskName: "line one\nline two", parentModel: "m" }).split("\n")[0], "task_name: line one line two");
+});
+
+test("opaque text such as an encrypted task message is recognized", () => {
+  assert.equal(looksOpaque(ENCRYPTED_MESSAGE), true);
+  assert.equal(looksOpaque("Find every caller of parseResponse and list file and line."), false);
+  assert.equal(looksOpaque("short"), false);
+  assert.equal(looksOpaque(""), false);
+  assert.equal(looksOpaque(null), false);
 });
 
 test("oversized requests are refused before sending", () => {

@@ -1,7 +1,0 @@
-{
-  "portable_schema_validation": "passed",
-  "local_semantic_validation": "passed",
-  "legacy_validation": "derived-equivalence, not independent official schema",
-  "installed": false,
-  "host_discovery_verified": false
-}

@@ -1,5 +1,0 @@
-{
-  "syntax_and_basic_style_lint": "passed",
-  "python_files": 23,
-  "static_type_checker": "not run; no installed checker"
-}

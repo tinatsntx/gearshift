@@ -1,13 +1,10 @@
-# Codex Decisions Router
+# Gearshift
 
-A local plugin under development that selects a coding model, its **reasoning effort**, and an appropriate delegation strategy as work progresses.
+A Codex plugin that picks the model and reasoning effort for every subagent, using the OpenAI Decisions API on each user's own API key.
 
-The product requirement is **each user pays for their own usage**. Distribution must contain no publisher credentials, and routing must never fall back to the publisher's account. A user connects their own account or API project once; subsequent authorized routing should run automatically.
+- The plugin, its documentation, and its tests are in [plugins/gearshift](plugins/gearshift/README.md).
+- This repository is also a local Codex marketplace: [.agents/plugins/marketplace.json](.agents/plugins/marketplace.json) lists the plugin so `codex plugin marketplace add <this folder>` can find it.
 
-The imported v0.1.0 package currently recommends model/effort pairs before delegated coding tasks. It includes a local MCP server, a routing skill, offline fixtures, and a dormant Decisions HTTP adapter. It does not yet provide continuous orchestration, parent-model switching, or verified changes to running agents.
+## History
 
-- [Product requirements and billing design](plugins/codex-decisions-router/docs/product-requirements.md)
-- [Imported package README](plugins/codex-decisions-router/README.md)
-- [Prior cloud verification report](plugins/codex-decisions-router/docs/verification.md)
-
-The cloud report describes earlier offline checks; it is not proof of installation or Windows runtime verification. Local installation, secure onboarding, live Decisions access, native application of settings, and public distribution still need implementation or verification.
+The project began as `codex-decisions-router` 0.1.0, a Python package built in the cloud that recommended settings through an MCP tool and never ran live. That source is preserved in this repository's first commit (`044e536`). The requirements and research written for it are kept in [plugins/gearshift/docs](plugins/gearshift/docs).

@@ -33,8 +33,13 @@ export const DEFAULT_CONFIG = Object.freeze({
   convert_full_forks: false,
   convert_full_forks_to: "none",
   prompt_max_chars: 4000,
-  // false sends only the agent type and parent model, never the task text.
+  // false never sends the subagent's task text, even when Codex leaves it readable.
   send_prompt_text: true,
+  // true also sends the message you last typed to Codex (clipped, key-shaped
+  // strings removed). Off by default. It is kept on disk only while in use.
+  include_user_prompt: false,
+  // true gives each session a short note on how to delegate so routing applies.
+  session_guidance: true,
   catalog_max_age_hours: 168,
   // true writes shape-only diagnostics of each hook call to the probe folder.
   probe: false,
@@ -58,6 +63,7 @@ export function dataPaths(dataDir) {
     cache: path.join(dataDir, "cache.json"),
     ledger: path.join(dataDir, "ledger.jsonl"),
     notices: path.join(dataDir, "notices.json"),
+    turnsDir: path.join(dataDir, "turns"),
     probeDir: path.join(dataDir, "probe"),
   };
 }
@@ -88,7 +94,7 @@ export function validateConfig(raw) {
   if (has("min_confidence") && !(typeof raw.min_confidence === "number" && raw.min_confidence >= 0 && raw.min_confidence <= 1)) {
     errors.push("min_confidence_out_of_range");
   }
-  for (const key of ["strict_probabilities", "convert_full_forks", "send_prompt_text", "probe"]) {
+  for (const key of ["strict_probabilities", "convert_full_forks", "send_prompt_text", "include_user_prompt", "session_guidance", "probe"]) {
     if (has(key) && typeof raw[key] !== "boolean") errors.push(`${key}_not_boolean`);
   }
   if (has("convert_full_forks_to") && !(raw.convert_full_forks_to === "none" || /^[1-9][0-9]*$/.test(String(raw.convert_full_forks_to)))) {
