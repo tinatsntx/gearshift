@@ -1,0 +1,9 @@
+include README.md START-HERE.md plugin.json mcp.json .mcp.json
+recursive-include .codex-plugin *.json
+recursive-include skills *.md
+recursive-include docs *.md *.json *.txt
+recursive-include fixtures *.json
+recursive-include scripts *.py
+recursive-include tests *.py
+recursive-exclude * __pycache__
+global-exclude *.py[cod]

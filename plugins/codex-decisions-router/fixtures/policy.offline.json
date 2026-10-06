@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "mode": "offline",
+  "allowed_presets": [
+    "luna_fast",
+    "luna_careful",
+    "sol_balanced",
+    "sol_deep",
+    "astra_balanced",
+    "astra_deep"
+  ],
+  "deadline_ms": 1000,
+  "min_confidence": 0.8
+}

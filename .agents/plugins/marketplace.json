@@ -1,0 +1,17 @@
+{
+  "name": "decisions-router-local",
+  "plugins": [
+    {
+      "name": "codex-decisions-router",
+      "source": {
+        "source": "local",
+        "path": "./plugins/codex-decisions-router"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

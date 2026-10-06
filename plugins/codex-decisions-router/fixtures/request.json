@@ -1,0 +1,65 @@
+{
+  "features": {
+    "task_kind": "implement",
+    "scope": "localized",
+    "uncertainty": "specified_solution",
+    "consequence": "low_reversible",
+    "verification": "executable_acceptance",
+    "urgency": "interactive",
+    "prior_failure": "none"
+  },
+  "host": {
+    "native_spawn_available": true,
+    "model_effort_overrides_available": true,
+    "catalog_source": "fixture",
+    "models": [
+      {
+        "model": "gpt-6-luna",
+        "supported_efforts": [
+          "low",
+          "high"
+        ],
+        "modalities": [
+          "text",
+          "image"
+        ],
+        "context_fit": "fits",
+        "tools_compatible": "yes",
+        "access": "advertised"
+      },
+      {
+        "model": "gpt-6.1-sol",
+        "supported_efforts": [
+          "medium",
+          "xhigh"
+        ],
+        "modalities": [
+          "text",
+          "image"
+        ],
+        "context_fit": "fits",
+        "tools_compatible": "yes",
+        "access": "advertised"
+      },
+      {
+        "model": "gpt-6-astra",
+        "supported_efforts": [
+          "medium",
+          "xhigh"
+        ],
+        "modalities": [
+          "text",
+          "image"
+        ],
+        "context_fit": "fits",
+        "tools_compatible": "yes",
+        "access": "advertised"
+      }
+    ],
+    "required_modalities": [
+      "text"
+    ],
+    "environment_ready": true
+  },
+  "privacy": "non_sensitive"
+}

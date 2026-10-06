@@ -1,0 +1,13 @@
+{
+  "independent_review": "passed",
+  "reviewed_runtime_snapshot_source_digest": "f35b7a9ab54788ad6dcff36bde335a734edf1541b126075426d84c217baca17d",
+  "reviewed_runtime_snapshot_sha256": "9f44ab3599ac72d2319a4cc0d6a5dd3078908f15a5ba575fe4c3d8a569d1d08f",
+  "tests_independently_rerun": 45,
+  "findings_closed": ["terminal_refusal_preservation", "pre_handler_protocol_log_redaction"],
+  "remaining_offline_release_blockers": [],
+  "release_changes_after_review": "Added user-facing start guide and supplied plan/research documents only; runtime code unchanged",
+  "real_api_verified": false,
+  "installed_user_client_verified": false,
+  "native_child_settings_verified": false,
+  "coding_quality_evaluated": false
+}

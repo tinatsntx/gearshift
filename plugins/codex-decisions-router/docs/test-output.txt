@@ -1,0 +1,50 @@
+test_live_requires_explicit_policy_and_process_opt_in_before_key_lookup (test_cli_safety.CLISafetyTests.test_live_requires_explicit_policy_and_process_opt_in_before_key_lookup) ... ok
+test_offline_never_reads_key_or_constructs_http_provider (test_cli_safety.CLISafetyTests.test_offline_never_reads_key_or_constructs_http_provider) ... ok
+test_policy_file_bounds_and_duplicate_keys (test_cli_safety.CLISafetyTests.test_policy_file_bounds_and_duplicate_keys) ... ok
+test_bad_probability_and_confidence (test_decisions.DecisionsContractTests.test_bad_probability_and_confidence) ... ok
+test_json_rejects_duplicates_and_constants (test_decisions.DecisionsContractTests.test_json_rejects_duplicates_and_constants) ... ok
+test_reject_union_and_answer_shape (test_decisions.DecisionsContractTests.test_reject_union_and_answer_shape) ... ok
+test_small_whitelist_payload (test_decisions.DecisionsContractTests.test_small_whitelist_payload) ... ok
+test_valid_response_and_future_envelope (test_decisions.DecisionsContractTests.test_valid_response_and_future_envelope) ... ok
+test_bad_process_redacts_error (test_integration.CatalogIntegrationTests.test_bad_process_redacts_error) ... ok
+test_catalog_does_not_guess_modalities_or_entitlement (test_integration.CatalogIntegrationTests.test_catalog_does_not_guess_modalities_or_entitlement) ... ok
+test_fake_process_handshake_paging_no_threads_or_turns (test_integration.CatalogIntegrationTests.test_fake_process_handshake_paging_no_threads_or_turns) ... ok
+test_sdk_stdio_initialize_list_call_and_redacted_errors (test_integration.MCPIntegrationTests.test_sdk_stdio_initialize_list_call_and_redacted_errors) ... ok
+test_malformed_envelopes_notifications_and_json_never_echo_values (test_integration.RawProtocolPrivacyTests.test_malformed_envelopes_notifications_and_json_never_echo_values) ... ok
+test_defaults_and_unknown (test_models_policy.InputTests.test_defaults_and_unknown) ... ok
+test_duplicates_and_limits (test_models_policy.InputTests.test_duplicates_and_limits) ... ok
+test_every_input_object_forbids_extras (test_models_policy.InputTests.test_every_input_object_forbids_extras) ... ok
+test_extra_fields_at_every_boundary (test_models_policy.InputTests.test_extra_fields_at_every_boundary) ... ok
+test_missing_each_field (test_models_policy.InputTests.test_missing_each_field) ... ok
+test_policy_live_gates (test_models_policy.InputTests.test_policy_live_gates) ... ok
+test_wrong_types_and_prompt_like_enum (test_models_policy.InputTests.test_wrong_types_and_prompt_like_enum) ... ok
+test_critical_floor_and_fallback (test_models_policy.PolicyTests.test_critical_floor_and_fallback) ... ok
+test_each_preset_intersects_constraints (test_models_policy.PolicyTests.test_each_preset_intersects_constraints) ... ok
+test_quality_escalation_and_warnings (test_models_policy.PolicyTests.test_quality_escalation_and_warnings) ... ok
+test_offline_policy_fixtures_not_coding_quality_evidence (test_package_host.EvaluationFixtureTests.test_offline_policy_fixtures_not_coding_quality_evidence) ... ok
+test_explicit_pin_bypasses_tool_in_documented_host_flow (test_package_host.HostSimulationTests.test_explicit_pin_bypasses_tool_in_documented_host_flow) ... ok
+test_fake_host_exact_pair_original_task_and_permissions (test_package_host.HostSimulationTests.test_fake_host_exact_pair_original_task_and_permissions) ... ok
+test_official_portable_schemas_and_derived_compatibility (test_package_host.PackageTests.test_official_portable_schemas_and_derived_compatibility) ... ok
+test_named_refusal_stays_terminal_with_malformed_or_extended_metadata (test_router.RefusalRegressionTests.test_named_refusal_stays_terminal_with_malformed_or_extended_metadata) ... ok
+test_pre_transport_failure_does_not_claim_api_called (test_router.RefusalRegressionTests.test_pre_transport_failure_does_not_claim_api_called) ... ok
+test_cache_is_bounded (test_router.RouterTests.test_cache_is_bounded) ... ok
+test_cache_ttl_catalog_access_and_policy_invalidation (test_router.RouterTests.test_cache_ttl_catalog_access_and_policy_invalidation) ... ok
+test_cancellation_cancels_provider (test_router.RouterTests.test_cancellation_cancels_provider) ... ok
+test_critical_and_quality_never_underroute (test_router.RouterTests.test_critical_and_quality_never_underroute) ... ok
+test_deadline_and_ignored_late_success (test_router.RouterTests.test_deadline_and_ignored_late_success) ... ok
+test_default_offline_has_zero_network_and_no_credential_lookup (test_router.RouterTests.test_default_offline_has_zero_network_and_no_credential_lookup) ... ok
+test_empty_singleton_host_environment_privacy_and_attempt (test_router.RouterTests.test_empty_singleton_host_environment_privacy_and_attempt) ... ok
+test_fixture_is_always_labeled (test_router.RouterTests.test_fixture_is_always_labeled) ... ok
+test_refusal_abstain_low_confidence_bad_response (test_router.RouterTests.test_refusal_abstain_low_confidence_bad_response) ... ok
+test_slow_body_is_covered_by_total_deadline (test_router.StreamDeadlineTests.test_slow_body_is_covered_by_total_deadline) ... ok
+test_stalled_request_does_not_exceed_pending_memory_bound (test_router.StreamDeadlineTests.test_stalled_request_does_not_exceed_pending_memory_bound) ... ok
+test_concurrent_call_cap_is_atomic (test_router.TransportTests.test_concurrent_call_cap_is_atomic) ... ok
+test_live_fixture_catalog_and_cap_enforced (test_router.TransportTests.test_live_fixture_catalog_and_cap_enforced) ... ok
+test_mock_http_one_request_exact_endpoint_and_body (test_router.TransportTests.test_mock_http_one_request_exact_endpoint_and_body) ... ok
+test_network_malformed_oversize_and_auth_absence (test_router.TransportTests.test_network_malformed_oversize_and_auth_absence) ... ok
+test_status_errors_zero_retries_and_redaction (test_router.TransportTests.test_status_errors_zero_retries_and_redaction) ... ok
+
+----------------------------------------------------------------------
+Ran 45 tests in 2.096s
+
+OK

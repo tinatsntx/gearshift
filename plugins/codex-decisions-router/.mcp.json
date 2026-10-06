@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "decisions_router": {
+      "command": "codex-decisions-router",
+      "args": [
+        "serve"
+      ]
+    }
+  }
+}

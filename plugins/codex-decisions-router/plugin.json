@@ -1,0 +1,6 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "codex-decisions-router",
+  "version": "0.1.0",
+  "description": "Select compatible model and reasoning settings for delegated Codex tasks."
+}

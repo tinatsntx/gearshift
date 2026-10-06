@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "codex-decisions-router"
+version = "0.1.0"
+description = "Privacy-bounded model and reasoning recommendations for delegated Codex tasks"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["mcp>=1.29,<2", "pydantic>=2.13,<3", "httpx>=0.28,<1"]
+
+[project.scripts]
+codex-decisions-router = "codex_decisions_router.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
