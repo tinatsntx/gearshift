@@ -1,6 +1,6 @@
 # Gearshift 0.3 release evidence
 
-Private preview only. Public repository publication and directory submission are subsequent actions.
+Apache 2.0 open-source development preview. The hosted preview remains owner-private; public directory submission is a separate release action.
 
 The bounded acceptance sequence made exactly six Decisions requests, with zero automatic retries. Connection validation used 121 input tokens in 1171 ms; synthetic lookup selected Luna/low (390 tokens, 960 ms), and synthetic review selected Sol/xhigh (409 tokens, 311 ms). An identical review repeat used the cache and made no additional request. These tasks establish connectivity and selection, not quality or savings.
 
@@ -20,6 +20,6 @@ The installed helper completed single-use pairing after the owner signed in thro
 
 Preview hosting correction: ChatGPT Sites is the user's selected provider. The retained Render Blueprint is inactive and no Gearshift Render resources have been deployed. Decisions calls and API credentials remain on each user's computer; changing the preview host does not move inference or publisher billing into the hosted service.
 
-The private repository is `tinatsntx/gearshift`; no PR or public publication was created. Packaging produces a hook-free public artifact and a separate Windows companion containing the runtime and license notices. Keys, owner-private Site access, pairing secrets, and `.env.local` are excluded. `dist/release.json` records the final source commit, installed version, tested host, archive hashes, API usage, and verified effective settings.
+The source repository is [tinatsntx/gearshift](https://github.com/tinatsntx/gearshift), licensed under Apache 2.0. Source publication does not expose the owner's hosted preview or submit a directory listing. The canonical Apache license text replaces altered passages in the earlier file. Packaging produces a hook-free public artifact and a separate Windows companion containing the runtime and license notices. Keys, owner-private Site access, pairing secrets, and `.env.local` are excluded. `dist/release.json` records the final source commit, installed version, tested host, archive hashes, API usage, and verified effective settings.
 
 The owner's October 7 screenshot confirms the actual inline Codex app mounted and displayed paired status, but its dark theme used unreadable text. The repair defines complete foreground/background palettes, follows the MCP Apps host's theme and theme-change notifications, and supplies a system-theme fallback. Buttons, selects, options, labels, and table entries inherit matching colors. The live browser panel was inspected in both light and dark mode; browser emulation was restored afterward. Resource `panel-0.3.0-3.html` replaces the old cached component. Reopening the updated inline Codex card remains necessary to verify embedded readability. The focused 22 checks passed, and no additional Decisions requests were made.

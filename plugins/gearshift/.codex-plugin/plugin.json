@@ -13,9 +13,9 @@
   "skills": "./skills/",
   "hooks": "./hooks/hooks.json",
   "interface": {
-    "displayName": "Gearshift",
-    "shortDescription": "The right model and effort for every subagent.",
-    "longDescription": "Gearshift watches each subagent Codex is about to start and chooses a model and reasoning effort for it, so small jobs run on fast models and hard ones get deep reasoning. Decisions are made by the OpenAI Decisions API using your own API key; your coding work stays on your Codex account.",
+    "displayName": "Gearshift Desktop",
+    "shortDescription": "Local model and reasoning-effort routing for eligible new subagents.",
+    "longDescription": "Gearshift Desktop recommends a supported model and reasoning effort for eligible new local Codex subagents using your own Decisions API key. Explicit settings and full-history forks stay unchanged. The local helper holds your encrypted credentials; Gearshift Preview provides the hosted control panel. Native coding work stays on your Codex account.",
     "developerName": "Gearshift contributors",
     "category": "Productivity",
     "capabilities": [

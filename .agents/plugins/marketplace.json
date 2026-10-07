@@ -1,7 +1,7 @@
 {
   "name": "gearshift-local",
   "interface": {
-    "displayName": "Gearshift (local)"
+    "displayName": "Gearshift Desktop (local)"
   },
   "plugins": [
     {
