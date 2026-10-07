@@ -2,9 +2,9 @@
   "project_id": "appgprj_6ac5a29dd03c8191abdf2ee107ed54da",
   "url": "https://gearshift-preview.tinatsntx.chatgpt.site",
   "audience": "owner-private",
-  "source_commit": "520d5bc73b5b969b5aa6afc45fb0beb7eda09fd1",
-  "version_id": "appgprj_6ac5a29dd03c8191abdf2ee107ed54da~appgver_1a83acb81f508191bd72ccd3075ceb95",
-  "deployment_id": "appgdep_6ac5aa6d17548191bd77f4756e8efb05",
+  "source_commit": "7465268918f60adb8b50c0c7b12765479ac7de7b",
+  "version_id": "appgprj_6ac5a29dd03c8191abdf2ee107ed54da~appgver_86da55ecdbf88191ba166fcebbc80955",
+  "deployment_id": "appgdep_6ac638378d308191ac3eb911d3fce2f3",
   "deployment_status": "succeeded",
   "mcp_url": "https://gearshift-preview.tinatsntx.chatgpt.site/mcp",
   "plugin_id": "plugin_asdk_app_sites_71a4b7514ce48191b223cd0681eafddd",
@@ -13,5 +13,9 @@
   "plugin_connected": true,
   "browser_panel_verified": true,
   "remote_settings_processed": true,
-  "mounted_panel_verified": false
+  "mounted_panel_verified": false,
+  "embedded_mount_observed": true,
+  "browser_light_and_dark_verified": true,
+  "embedded_updated_readability_verified": false,
+  "panel_resource": "ui://gearshift/panel-0.3.0-3.html"
 }

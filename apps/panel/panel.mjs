@@ -24,4 +24,6 @@ function render(data){root.replaceChildren();el("h1","Gearshift");el("p","Model 
 }
 const pair=(model,effort)=>model?`${model} / ${effort??"unknown"}`:"Unset";
 app.ontoolresult=result=>{state=result.structuredContent;render(state);};
-void (async()=>{if(!web)await app.connect();if(!state)await refresh();})().catch(()=>{root.replaceChildren();el("p",web?"Gearshift could not load your computers. Reload the page to try again.":"Gearshift needs a connected MCP Apps host. Open this panel from the registered Gearshift plugin.");});
+const applyTheme=context=>{if(context?.theme==="light"||context?.theme==="dark")document.documentElement.dataset.theme=context.theme;};
+app.onhostcontextchanged=applyTheme;
+void (async()=>{if(!web){await app.connect();applyTheme(app.getHostContext());}if(!state)await refresh();})().catch(()=>{root.replaceChildren();el("p",web?"Gearshift could not load your computers. Reload the page to try again.":"Gearshift needs a connected MCP Apps host. Open this panel from the registered Gearshift plugin.");});

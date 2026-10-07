@@ -10,7 +10,7 @@ import { z } from "zod";
 import { PostgresStore } from "./store.mjs";
 import { Control,Settings,hash,opaque } from "./control.mjs";
 import { GithubOAuth } from "./oauth.mjs";
-const URI="ui://gearshift/panel-0.3.0-2.html";
+const URI="ui://gearshift/panel-0.3.0-3.html";
 const cookie=(req,name)=>req.headers.cookie?.split(";").map(s=>s.trim()).find(s=>s.startsWith(name+"="))?.slice(name.length+1);
 export function buildApp({store,baseUrl,clientId,clientSecret,fetcher,uiHtml}={}) {
   const control=new Control(store),oauth=new GithubOAuth(store,{baseUrl,clientId,clientSecret,fetcher});

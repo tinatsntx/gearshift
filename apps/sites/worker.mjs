@@ -4,7 +4,7 @@ import { registerAppTool,registerAppResource,RESOURCE_MIME_TYPE } from "@modelco
 import { z } from "zod";
 import { Control,Settings } from "../service/control.mjs";
 import { D1Store } from "./store.mjs";
-const URI="ui://gearshift/panel-0.3.0-2.html",ticketSchema=z.string().regex(/^[A-Za-z0-9_-]{43}$/);
+const URI="ui://gearshift/panel-0.3.0-3.html",ticketSchema=z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 const json=(value,status=200)=>Response.json(value,{status,headers:{"Cache-Control":"no-store"}});
 const html=(value,status=200)=>new Response(value,{status,headers:{"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store","Referrer-Policy":"no-referrer","X-Content-Type-Options":"nosniff"}});
 export function createSiteHandler({store,panelHtml,iconSvg}={}){
