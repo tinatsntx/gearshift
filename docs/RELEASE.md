@@ -15,7 +15,7 @@
 
 ## Checks
 
-- 220 automated tests pass. None touches the network or a real Codex; `tests/fake-codex.mjs` stands in for the Codex program, including its app-server protocol and the session files it writes.
+- 221 automated tests pass. None touches the network or a real Codex; `tests/fake-codex.mjs` stands in for the Codex program, including its app-server protocol and the session files it writes.
 - The package builds. Its hook definitions are byte-identical to the 0.3.1 build, so hooks trusted under 0.3.1 should not need to be trusted again. The packaged helper, run with its packaged runtime, completed a composer task end to end against the stand-in.
 - The composer page was exercised in a browser against the stand-in: a routed task, a follow-up routed to a different model, an approval prompt, a question, Stop, a reload, and light and dark themes.
 
@@ -41,19 +41,35 @@ Established on this Codex version: the composer starts turns with a chosen model
 
 **A Decisions-selected main task is verified. A Decisions-selected subagent is still not.** Three attempts across 0.3 and 0.4 have ended in an abstention or low confidence, because Codex hands a hook an encrypted task message and a task name alone gives Decisions little to go on. Until that changes, subagent routing in practice means "use the local default preset instead of inheriting the settings of the parent".
 
-**Most ordinary prompts took the local default.** Three of four classified composer turns, and one of two benchmark prompts, scored below 0.6. With six presets and an abstain option, the share of the top choice is often well under 0.6 even when it is plainly leaning one way (the large benchmark task leaned `gpt-6.1-sol` / `xhigh` at 0.37 both times). The threshold was always labeled uncalibrated; this is the first data on it. From 0.4.0 the ledger and the composer badge record what Decisions leaned toward when it is not applied, so the threshold can be tuned against real decisions. It has not been changed.
+**Most ordinary prompts took the local default.** Three of four classified composer turns, and one of two benchmark prompts, scored below 0.6. With six presets and an abstain option, the share of the top choice is often well under 0.6 even when it is plainly leaning one way (the large benchmark task leaned `gpt-6.1-sol` / `xhigh` at 0.37 both times). The threshold was always labeled uncalibrated; this is the first data on it. That was the rule in force during acceptance. It has since been replaced; see "Decided after acceptance" below.
 
 **Commands did not run in any live task.** The Windows sandbox setup in Codex failed with `helper_unknown_error: setup refresh had errors`. The sandbox log Codex keeps shows the same failure for the sandboxed sessions of the Codex app itself since the evening of 2026-10-06: the setup cannot update permissions on a Codex runtime file that another process holds open. It is independent of Gearshift and did not affect routing or verification, but it means a composer task that successfully executes commands has not been observed on this computer. The Access setting in the composer passes Codex a different access level for a task; "Full access" does not use the sandbox and has not been tried live.
 
-Hook start-up dominates the subagent path. Each hook is launched through PowerShell, which measured about 360 ms against about 80 ms for Node alone. The pooled connection saves roughly 100 to 170 ms per call on top of that. Removing the PowerShell wrapper would change the hook definitions and require them to be trusted again, so it was left for a separate decision.
+Hook start-up dominates the subagent path. Each hook is launched through PowerShell, which measured about 360 ms against about 80 ms for Node alone. The pooled connection saves roughly 100 to 170 ms per call on top of that. Removing the PowerShell wrapper would change the hook definitions and require them to be trusted again.
 
 Not claimed: routing quality, savings, a latency guarantee, or behavior on any other Codex version.
 
+## Decided after acceptance
+
+The owner left two questions to be decided. Two more Decisions calls were made for the first, taking the total to 14 of 15.
+
+**The confidence rule changed; the threshold did not.** One call showed what a real uncertain answer contains: a probability for every preset, summing to 1. For the large benchmark task the top choice was `sol_deep` at 0.46, with 0.31 on `astra_deep` and only 0.21 on anything lighter. Decisions was not unsure that the task was hard. It was unsure which deep preset to use, and the old rule answered that by dropping to the medium default. The rule is now:
+
+- At or above `min_confidence` (still 0.6), the top choice is used as before and labeled **selected**.
+- Below it, Gearshift takes the **cautious pick**. Starting from the top choice, it moves to a heavier preset until the presets at or below it hold at least `min_confidence` of the estimate. It is never lighter than the top choice. For the answer above that is `sol_deep` / `xhigh`, covering 0.67.
+- A split between two light presets therefore settles on the more careful one, and a split across deep presets stays deep.
+- With no usable breakdown, it takes the heavier of the top choice and the local default. An abstention, a timeout and an error still take the local default.
+
+A cautious pick is labeled **cautious**, never selected, and does not count as a Decisions-selected turn in any evidence. The ledger and the composer badge record what Decisions leaned toward and how much the pick covers. Presets must stay listed lightest first, because that order is how Gearshift knows which is heavier. This will choose heavier settings more often than before on uncertain prompts; raising `min_confidence` makes it heavier still and lowering it lighter.
+
+The rule was checked by replaying the real answer through the shipped code and by tests built on that answer. The one attempt to exercise it live, through the installed command line, timed out at 1502 ms on a fresh connection and took the labeled timeout fallback, so the rule has not been observed live.
+
+**The PowerShell hook wrapper stays.** It costs about 280 ms per hook. It exists because a direct command failed on an earlier Codex build. A replacement cannot be tried on the real host without the owner trusting new hook definitions, and a wrong one would stop routing altogether. A third of a second on a subagent that then runs for much longer is not worth that risk untested. Revisiting it needs one deliberate trial on the host with a single re-trust.
+
 ## Still to do
 
-- Redeploy the hosted preview from `sites-preview` so its panel knows 0.4.0. Until then the helper reports to it in the 0.3.1 shape and settings sync continues. The steps are in [HANDOFF-CODEX-SITES-0.4.0.md](HANDOFF-CODEX-SITES-0.4.0.md).
+- Redeploy the hosted preview from `sites-preview` so its panel knows 0.4.0. Until then the helper reports to it in the 0.3.1 shape and settings sync continues. The steps are in [HANDOFF-CODEX-0.4.0.md](HANDOFF-CODEX-0.4.0.md).
 - Open a new chat in the Codex app so it loads the 0.4.0 plugin. Chats that were already open keep what they loaded.
-- Decide the confidence threshold policy, and whether to drop the PowerShell hook wrapper.
 
 ---
 

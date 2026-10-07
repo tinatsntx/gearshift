@@ -25,7 +25,10 @@ export const DEFAULT_CONFIG = Object.freeze({
   // null means any model the catalog lists; otherwise a list of model slugs.
   allowed_models: null,
   deadline_ms: 1500,
-  // Uncalibrated. Below this the local fallback is used instead.
+  // How sure Gearshift must be. At or above this, Decisions' top choice is used
+  // as it is. Below it, the cautious pick is used: never lighter than the top
+  // choice, and heavy enough that this share of Decisions' estimate says a
+  // preset that heavy or lighter is right. Higher means heavier picks.
   min_confidence: 0.6,
   // true requires the response to list a probability for every choice.
   strict_probabilities: false,

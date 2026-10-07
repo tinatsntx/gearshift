@@ -55,7 +55,7 @@ All are in `%USERPROFILE%\.gearshift\config.json`; `gearshift config set <key> <
 | `mode` | `off` | `auto` applies choices, `dry_run` (Preview) records them, `off` does nothing. |
 | `deadline_ms` | 1500 | Time allowed for the single Decisions call for a subagent. Never retried. |
 | `composer_deadline_ms` | 1500 | The same for a composer turn. |
-| `min_confidence` | 0.6 | Below this, the local default preset is used and labeled as a fallback. |
+| `min_confidence` | 0.6 | At or above this, Decisions' top choice is used. Below it, Gearshift takes a cautious pick: never lighter than the top choice, and heavy enough to cover this share of Decisions' estimate. Higher means heavier picks. |
 | `composer_approval_policy`, `composer_sandbox` | unset | Unset inherits your Codex configuration for composer tasks. |
 | `warm_connection` | `true` | Keep a connection to the Decisions API open while Codex is in use. See `PRIVACY.md`. |
 | `catalog_auto_refresh` | `true` | Let the helper re-read the model list by itself. |

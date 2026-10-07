@@ -1,7 +1,7 @@
 {
   "version": "0.4.0",
   "max_requests": 15,
-  "requests": 12,
+  "requests": 14,
   "measured_on": "2026-10-07",
   "how": "The built 0.4.0 package's helper, started against a throwaway store, with the real Codex Desktop program and the real Decisions API on the owner's dedicated API project. Nothing was installed and the installed 0.3.1 helper, its store and its settings were not touched. The throwaway store was deleted afterwards.",
   "desktop_program": "Codex Desktop:0.162.0-alpha.2",
@@ -10,8 +10,9 @@
     "benchmark": 6,
     "composer_main_turns": 4,
     "subagents": 2,
-    "total": 12,
-    "input_tokens_reported": 5475
+    "total": 14,
+    "input_tokens_reported": 5475,
+    "after_acceptance": 2
   },
   "benchmark": {
     "note": "One computer, one moment, a handful of calls. Not a latency guarantee and not evidence of routing quality.",
@@ -248,7 +249,7 @@
     "every_turn_ran_as_requested": true
   },
   "findings": [
-    "Of the four composer turns that asked Decisions, one was selected (confidence 0.78) and three fell below the 0.6 threshold (0.39, 0.52, 0.31) and took the local default. The threshold is uncalibrated; with six presets and an abstain option the top choice rarely reaches 0.6 on an ordinary prompt.",
+    "Of the four composer turns that asked Decisions during acceptance, one was selected (confidence 0.78) and three fell below the 0.6 threshold (0.39, 0.52, 0.31) and took the local default under the rule in force at the time. That rule has since been replaced; see 'decided'.",
     "Both subagent spawns carried an encrypted task message, so Decisions saw only the task name. It returned low confidence (0.49) once and abstained (0.50) once. The local default was written into the spawn and the child ran with it. A Decisions-selected subagent has still not been observed.",
     "Shell commands failed in every live task with Codex's own Windows sandbox error 'helper_unknown_error: setup refresh had errors'. Codex's sandbox log shows the same error for the Desktop app's own sandboxed sessions since 2026-10-06 evening: its setup cannot update permissions on a Codex runtime file that another process holds open. This is independent of Gearshift and of which model ran, and routing and verification were unaffected by it. Running a composer task that executes commands successfully has therefore not been observed on this computer."
   ],
@@ -257,5 +258,36 @@
     "savings",
     "latency guarantees",
     "behavior on any other Codex version"
-  ]
+  ],
+  "after_acceptance": {
+    "why": "The owner asked for a decision on the confidence threshold. One call was made to see what a real uncertain answer contains, and one to try the resulting rule through the installed command line.",
+    "uncertain_answer": {
+      "what": "the same large task as the benchmark, classified as a main turn",
+      "every_offered_value_has_a_probability": true,
+      "probability_sum": 1,
+      "top_choice": "sol_deep",
+      "confidence": 0.37,
+      "probabilities": {
+        "luna_fast": 0,
+        "luna_careful": 0.04,
+        "sol_balanced": 0.17,
+        "sol_deep": 0.46,
+        "astra_balanced": 0.02,
+        "astra_deep": 0.31,
+        "abstain": 0
+      },
+      "under_the_old_rule": "below 0.6, so the local default gpt-6.1-sol / medium, although only 0.21 of the estimate says a preset that light is enough",
+      "under_the_new_rule": "cautious pick sol_deep (gpt-6.1-sol / xhigh), covering 0.67 of the estimate. Computed by replaying this answer through the shipped rule, not by a further call.",
+      "note": "The confidence field (0.37) is not the same number as the top probability (0.46)."
+    },
+    "installed_command_line_route": {
+      "what": "gearshift route with the same task, on a fresh connection, 1500 ms deadline",
+      "result": "timed out at 1502 ms, so the local default was applied and labeled as a timeout fallback",
+      "meaning": "The deadline and the labeled fallback behaved as designed. It did not exercise the new rule live. The command line opens a new connection for every call; the helper uses its pooled one."
+    }
+  },
+  "decided": {
+    "confidence_rule": "Kept min_confidence at 0.6 and changed what happens below it. At or above it, the top choice is used as before. Below it, Gearshift takes the cautious pick: never lighter than the top choice, and heavy enough that min_confidence of the estimate says a preset that heavy or lighter is right. With no usable breakdown it takes the heavier of the top choice and the local default. Labeled 'cautious', never 'selected'.",
+    "powershell_hook_wrapper": "Kept. It costs about 280 ms per hook, but it exists because a direct command failed on an earlier Codex build, a replacement cannot be tried on the real host without the owner trusting new hook definitions, and a mistake would stop routing altogether."
+  }
 }

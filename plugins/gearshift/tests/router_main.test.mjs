@@ -10,7 +10,7 @@ import { ABSTAIN, INSTRUCTIONS, MAIN_TURN_INSTRUCTIONS, buildInputText } from ".
 import { makeEntry } from "../lib/ledger.mjs";
 import { DEFAULT_PRESETS } from "../lib/presets.mjs";
 import { REASONS, routeMainTurn, routeSpawn } from "../lib/router.mjs";
-import { FAKE_KEY, SENTINEL, answer, config, deps, fakeClock, fakeTransport, hookInput, refusal } from "./helpers.mjs";
+import { FAKE_KEY, SENTINEL, answer, bare, config, deps, fakeClock, fakeTransport, hookInput, refusal, spread } from "./helpers.mjs";
 
 const TASK = "Rename the config key deadline_ms to deadline in two files.";
 const turn = (overrides = {}) => ({ text: TASK, defaultModel: "gpt-6.1-sol", ...overrides });
@@ -94,7 +94,7 @@ test("an identical task is served from the cache; a subagent with the same text 
 test("timeouts, abstentions, low confidence and API errors fall back and are labeled as fallbacks", async () => {
   const cases = [
     [fakeTransport(answer(ABSTAIN, 0.9)), "abstain"],
-    [fakeTransport(answer("astra_deep", 0.1)), "low_confidence"],
+    [fakeTransport(bare("luna_fast", 0.3)), "low_confidence"],
     [fakeTransport({ status: 500, text: SENTINEL }), "api_unavailable"],
     [fakeTransport({ status: 401, text: SENTINEL }), "api_auth"],
     [fakeTransport({ status: 429, text: SENTINEL }), "rate_limited"],
@@ -110,18 +110,56 @@ test("timeouts, abstentions, low confidence and API errors fall back and are lab
   }
 });
 
-test("a choice that was not confident enough is not applied, but what it leaned toward is recorded", async () => {
-  const result = await routeMainTurn(turn(), deps({ transport: fakeTransport(answer("sol_deep", 0.39)) }));
-  assert.deepEqual([result.decision.source, result.decision.reason, result.decision.preset.id, result.decision.confidence], ["fallback", "low_confidence", "sol_balanced", 0.39]);
-  assert.deepEqual([result.entry.leaned_preset, result.entry.leaned_model, result.entry.leaned_effort], ["sol_deep", "gpt-6.1-sol", "xhigh"]);
-  assert.deepEqual([result.entry.recommended_model, result.entry.recommended_effort], ["gpt-6.1-sol", "medium"], "the applied pair is the local default");
-  assertClean(result);
-  const spawn = await routeSpawn(hookInput(), deps({ transport: fakeTransport(answer("luna_fast", 0.5)) }));
-  assert.deepEqual([spawn.entry.reason, spawn.entry.preset, spawn.entry.leaned_preset], ["low_confidence", "sol_balanced", "luna_fast"], "the same record is kept for a subagent");
-  const sure = await routeMainTurn(turn(), deps({ transport: fakeTransport(answer("sol_deep", 0.9)) }));
-  assert.equal(sure.entry.leaned_preset, undefined, "a confident selection needs no such note");
-  const abstained = await routeMainTurn(turn(), deps({ transport: fakeTransport(answer(ABSTAIN, 0.5)) }));
-  assert.equal(abstained.entry.leaned_preset, undefined, "an abstention leaned nowhere");
+test("when Decisions is not confident, the cautious pick is used and labeled as such", async () => {
+  const route = async (response, extra = {}) => routeMainTurn(turn(), deps({ transport: fakeTransport(response), ...extra }));
+  const outcome = (result) => [result.decision.source, result.decision.reason, result.decision.preset.id, result.decision.apply];
+
+  // The breakdown a real hard task produced: most of the weight is on the deep presets.
+  const hard = await route(spread({ luna_careful: 0.04, sol_balanced: 0.17, sol_deep: 0.46, astra_balanced: 0.02, astra_deep: 0.31 }, { confidence: 0.37 }));
+  assert.deepEqual(outcome(hard), ["decisions", "cautious", "sol_deep", true], "it stays deep instead of dropping to the medium default");
+  assert.deepEqual([hard.entry.leaned_preset, hard.entry.leaned_model, hard.entry.leaned_effort, hard.entry.cover, hard.entry.confidence], ["sol_deep", "gpt-6.1-sol", "xhigh", 0.67, 0.37]);
+  assert.deepEqual([hard.entry.recommended_model, hard.entry.recommended_effort, hard.entry.applied], ["gpt-6.1-sol", "xhigh", true]);
+  assert.equal(hard.cacheDirty, true);
+  assertClean(hard);
+
+  // A split between two light presets settles on the more careful one, not on a heavier default.
+  const light = await route(spread({ luna_fast: 0.4, luna_careful: 0.55, sol_balanced: 0.05 }, { confidence: 0.5 }));
+  assert.deepEqual(outcome(light), ["decisions", "cautious", "luna_careful", true]);
+  assert.equal(light.entry.cover, 0.95);
+
+  // The lean is light but most of the weight is heavier: move up until enough is covered.
+  const heavierWeight = await route(spread({ luna_careful: 0.35, sol_balanced: 0.3, sol_deep: 0.3, astra_deep: 0.05 }, { confidence: 0.35 }));
+  assert.deepEqual([...outcome(heavierWeight), heavierWeight.entry.leaned_preset, heavierWeight.entry.cover], ["decisions", "cautious", "sol_balanced", true, "luna_careful", 0.65]);
+
+  // Enough weight sits below the lean, but the pick is never lighter than the lean.
+  const neverLighter = await route(spread({ luna_fast: 0.3, luna_careful: 0.3, sol_balanced: 0.4 }, { confidence: 0.4 }));
+  assert.deepEqual(outcome(neverLighter), ["decisions", "cautious", "sol_balanced", true]);
+
+  // Nearly half the weight is on "abstain", so no preset covers enough, and the lean is light: the default stands.
+  const abstainHeavy = await route(spread({ luna_fast: 0.5, luna_careful: 0.05 }, { confidence: 0.5 }));
+  assert.deepEqual(outcome(abstainHeavy), ["fallback", "low_confidence", "sol_balanced", true]);
+  assert.deepEqual([abstainHeavy.entry.leaned_preset, abstainHeavy.entry.cover, abstainHeavy.cacheDirty], ["luna_fast", undefined, false]);
+
+  // No breakdown at all: a heavy lean is kept, a light lean gives way to the default.
+  const bareHeavy = await route(bare("astra_balanced", 0.4));
+  assert.deepEqual([...outcome(bareHeavy), bareHeavy.entry.cover], ["decisions", "cautious", "astra_balanced", true, undefined]);
+  assert.deepEqual(outcome(await route(bare("luna_careful", 0.4))), ["fallback", "low_confidence", "sol_balanced", true]);
+
+  // A higher setting asks for more cover and so picks heavier. A confident answer is untouched by any of this.
+  const stricter = await route(spread({ luna_careful: 0.04, sol_balanced: 0.17, sol_deep: 0.46, astra_balanced: 0.02, astra_deep: 0.31 }, { confidence: 0.37 }), { config: config({ min_confidence: 0.9 }) });
+  assert.deepEqual([stricter.decision.preset.id, stricter.entry.cover], ["astra_deep", 1]);
+  const sure = await route(spread({ luna_fast: 0.95, luna_careful: 0.05 }));
+  assert.deepEqual([...outcome(sure), sure.entry.leaned_preset, sure.entry.cover], ["decisions", "selected", "luna_fast", true, undefined, undefined]);
+  const abstained = await route(answer(ABSTAIN, 0.5));
+  assert.deepEqual([...outcome(abstained), abstained.entry.leaned_preset], ["fallback", "abstain", "sol_balanced", true, undefined]);
+
+  // Preview decides the same way and applies nothing.
+  const preview = await route(spread({ sol_deep: 0.5, astra_deep: 0.5 }, { confidence: 0.4 }), { config: config({ mode: "dry_run" }) });
+  assert.deepEqual([preview.decision.reason, preview.decision.preset.id, preview.decision.apply], ["cautious", "astra_deep", false], "an even split between two deep presets takes the heavier: the lighter covers only half");
+
+  // The same rule serves a subagent.
+  const spawn = await routeSpawn(hookInput(), deps({ transport: fakeTransport(spread({ luna_fast: 0.45, luna_careful: 0.45, sol_balanced: 0.1 }, { confidence: 0.45 })) }));
+  assert.deepEqual([spawn.entry.source, spawn.entry.reason, spawn.entry.preset, spawn.entry.leaned_preset], ["decisions", "cautious", "luna_careful", "luna_fast"]);
 });
 
 test("the composer deadline bounds the single call", async () => {

@@ -87,6 +87,8 @@ function routingView(decision, { followUp }) {
     // When Decisions was not confident enough to act on, what it leaned toward.
     leaned_model: decision.details?.leaned_model ?? null,
     leaned_effort: decision.details?.leaned_effort ?? null,
+    // For a cautious pick: the share of the estimate that says a preset this heavy or lighter is right.
+    cover: typeof decision.details?.cover === "number" ? decision.details.cover : null,
     latency_ms: decision.latencyMs ?? null,
     decide_ms: decision.telemetry?.decide_ms ?? null,
     socket_reused: decision.telemetry?.socket_reused ?? null,

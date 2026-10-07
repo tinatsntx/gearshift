@@ -64,6 +64,57 @@ export function eligiblePresets(presets, catalog, { allowedModels = null } = {})
   return { candidates, catalogMissing: false };
 }
 
+// Presets are listed lightest first. That order is the only thing Gearshift
+// knows about which of two presets is the heavier one, so keep it that way
+// when editing them.
+
+/** The heavier of two presets by list order. Either may be missing. */
+export function heavierOf(candidates, a, b) {
+  const indexA = a ? candidates.findIndex((preset) => preset.id === a.id) : -1;
+  const indexB = b ? candidates.findIndex((preset) => preset.id === b.id) : -1;
+  if (indexA === -1 && indexB === -1) return null;
+  return candidates[Math.max(indexA, indexB)];
+}
+
+/**
+ * The cautious pick when Decisions is not confident in its top choice.
+ *
+ * Decisions gives a probability to every preset. Walking the list from the
+ * lightest, this finds the first preset by which the running total reaches
+ * `target`: with at least that probability, a preset this heavy or lighter is
+ * the right one. The result is never lighter than Decisions' own top choice.
+ *
+ * So a split between two light presets settles on the more careful of them,
+ * and a split across the deep presets stays deep instead of dropping to a
+ * middling default. Weight given to "abstain" counts toward no preset; when
+ * the presets together hold less than `target`, there is no cautious pick and
+ * null is returned.
+ *
+ * Returns { preset, cover } where cover is the probability that the picked
+ * preset or a lighter one is right.
+ */
+export function coveringPreset(candidates, probabilities, topId, target) {
+  if (!isPlainObject(probabilities) || !(target > 0)) return null;
+  const share = (preset) => {
+    const value = probabilities[preset.id];
+    return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0;
+  };
+  let running = 0;
+  let reached = -1;
+  for (let index = 0; index < candidates.length; index += 1) {
+    running += share(candidates[index]);
+    if (running + 1e-9 >= target) {
+      reached = index;
+      break;
+    }
+  }
+  if (reached === -1) return null;
+  const pick = Math.max(reached, candidates.findIndex((preset) => preset.id === topId));
+  let cover = 0;
+  for (let index = 0; index <= pick; index += 1) cover += share(candidates[index]);
+  return { preset: candidates[pick], cover: Math.min(1, Number(cover.toFixed(4))) };
+}
+
 export function pickFallback(candidates, order) {
   const byId = new Map(candidates.map((preset) => [preset.id, preset]));
   for (const id of order ?? []) {

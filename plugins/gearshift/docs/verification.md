@@ -1,6 +1,6 @@
 # Verification status
 
-Updated 2026-10-07 for Gearshift 0.4.0 on Windows. The automated suite passes 220 tests. None touches the network or a real Codex: a stand-in program speaks the app-server protocol and writes the session files that verification reads. Live results are recorded in the repository's `docs/RELEASE.md` and `docs/live-proof-0.4.0.json`.
+Updated 2026-10-07 for Gearshift 0.4.0 on Windows. The automated suite passes 221 tests. None touches the network or a real Codex: a stand-in program speaks the app-server protocol and writes the session files that verification reads. Live results are recorded in the repository's `docs/RELEASE.md` and `docs/live-proof-0.4.0.json`.
 
 What the live run on Codex Desktop 0.162.0-alpha.2 established:
 

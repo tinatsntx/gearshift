@@ -47,6 +47,28 @@ export function answer(choice = "sol_balanced", confidence = 0.9, candidates = D
   };
 }
 
+/**
+ * An answer whose probabilities are spread as given. Presets not listed get 0,
+ * and whatever is left over goes to "abstain", as in a real answer where every
+ * offered value has a probability and they sum to 1.
+ */
+export function spread(shares, { confidence, candidates = DEFAULT_PRESETS } = {}) {
+  const values = [...candidates.map((preset) => preset.id), ABSTAIN];
+  const listed = values.reduce((sum, value) => sum + (value === ABSTAIN ? 0 : shares[value] ?? 0), 0);
+  const all = { ...shares, [ABSTAIN]: shares[ABSTAIN] ?? Math.max(0, Number((1 - listed).toFixed(6))) };
+  const choice = values.reduce((best, value) => ((all[value] ?? 0) > (all[best] ?? 0) ? value : best), values[0]);
+  return {
+    model: "gpt-6-luna",
+    usage: { input_tokens: 321, total_tokens: 321 },
+    answers: [{ type: "choice", name: "route", choice, confidence: confidence ?? all[choice], probabilities: values.map((value) => ({ value, probability: all[value] ?? 0 })) }],
+  };
+}
+
+/** A choice and a confidence with no probability breakdown at all. */
+export function bare(choice, confidence) {
+  return { model: "gpt-6-luna", usage: { input_tokens: 321, total_tokens: 321 }, answers: [{ type: "choice", name: "route", choice, confidence }] };
+}
+
 export function refusal() {
   return { model: "gpt-6-luna", usage: { input_tokens: 12, total_tokens: 12 }, answers: [{ type: "refusal", name: "route" }] };
 }

@@ -69,6 +69,10 @@ function badge(r){
   else if(r.source==='manual')text='Manual '+pair;
   else if(r.status==='passthrough'){text=(r.reason==='mode_off'?'Routing off':'Not routed: '+why(r.reason))+" · Codex's own settings";tone=r.reason==='mode_off'?'':'warn'}
   else if(r.dry_run){text='Preview: would pick '+pair+', not applied'}
+  else if(r.source==='decisions'&&r.reason==='cautious'){
+    var lean=r.leaned_model&&(r.leaned_model!==r.model||r.leaned_effort!==r.effort)?'it leaned '+r.leaned_model+' · '+r.leaned_effort+'; ':'';
+    text='Auto-selected '+pair+(r.decide_ms!==null&&r.decide_ms!==undefined?' · '+r.decide_ms+' ms':'')+' (Decisions, '+lean+'cautious pick'+(typeof r.cover==='number'?' covering '+Math.round(r.cover*100)+'%':'')+')';
+  }
   else if(r.source==='decisions')text='Auto-selected '+pair+(r.decide_ms!==null&&r.decide_ms!==undefined?' · '+r.decide_ms+' ms':'')+' (Decisions)';
   else if(r.source==='cache')text='Auto-selected '+pair+' (cached)';
   else if(r.source==='fallback'){text='Fallback '+pair+' ('+why(r.reason)+(r.leaned_model?'; it leaned '+r.leaned_model+' · '+r.leaned_effort+(typeof r.confidence==='number'?' at '+Math.round(r.confidence*100)+'%':''):'')+')';tone='warn'}

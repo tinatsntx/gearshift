@@ -5,7 +5,7 @@ import { ABSTAIN } from "../lib/decisions.mjs";
 import { makeEntry } from "../lib/ledger.mjs";
 import { DEFAULT_PRESETS } from "../lib/presets.mjs";
 import { REASONS, routeSpawn } from "../lib/router.mjs";
-import { ENCRYPTED_MESSAGE, FAKE_KEY, SENTINEL, answer, config, deps, fakeClock, fakeTransport, hookInput, refusal, catalogFixture } from "./helpers.mjs";
+import { ENCRYPTED_MESSAGE, FAKE_KEY, SENTINEL, answer, bare, config, deps, fakeClock, fakeTransport, hookInput, refusal, catalogFixture, spread } from "./helpers.mjs";
 
 const TASK = "Find every caller of parseResponse and list file and line.";
 
@@ -242,8 +242,9 @@ test("the cache serves repeats, expires, and is keyed by task text, task name, c
   assert.equal(transport.calls.length, 6);
 });
 
-test("abstain and low confidence use the local default and are not cached", async () => {
-  for (const [response, reason] of [[answer(ABSTAIN, 0.9), "abstain"], [answer("astra_deep", 0.1), "low_confidence"]]) {
+test("abstain, and low confidence with nothing better to go on, use the local default and are not cached", async () => {
+  // A light lean with no usable breakdown: the default is the heavier of the two, so it stands.
+  for (const [response, reason] of [[answer(ABSTAIN, 0.9), "abstain"], [bare("luna_fast", 0.3), "low_confidence"], [spread({ luna_fast: 0.5, luna_careful: 0.05 }, { confidence: 0.5 }), "low_confidence"]]) {
     const cache = { entries: {} };
     const result = await routeSpawn(hookInput(), deps({ transport: fakeTransport(response), cache }));
     assert.deepEqual([result.entry.source, result.entry.reason, result.entry.preset, result.entry.api_called], ["fallback", reason, "sol_balanced", true]);
@@ -251,6 +252,22 @@ test("abstain and low confidence use the local default and are not cached", asyn
     assert.deepEqual(cache.entries, {});
     assert.equal(result.cacheDirty, false);
   }
+});
+
+test("low confidence with a breakdown takes the cautious pick: never lighter than the lean, heavy enough to cover", async () => {
+  // The breakdown a real hard task produced during 0.4.0 acceptance.
+  const hard = spread({ luna_careful: 0.04, sol_balanced: 0.17, sol_deep: 0.46, astra_balanced: 0.02, astra_deep: 0.31 }, { confidence: 0.37 });
+  const cache = { entries: {} };
+  const transport = fakeTransport(hard);
+  const shared = deps({ transport, cache });
+  const result = await routeSpawn(hookInput(), shared);
+  assert.deepEqual([result.entry.status, result.entry.source, result.entry.reason, result.entry.preset, result.entry.confidence], ["routed", "decisions", "cautious", "sol_deep", 0.37]);
+  assert.deepEqual([result.entry.leaned_preset, result.entry.cover], ["sol_deep", 0.67]);
+  assert.deepEqual([result.output.hookSpecificOutput.updatedInput.model, result.output.hookSpecificOutput.updatedInput.reasoning_effort], ["gpt-6.1-sol", "xhigh"]);
+  assertClean(result);
+  const again = await routeSpawn(hookInput(), shared);
+  assert.deepEqual([again.entry.source, again.entry.preset], ["cache", "sol_deep"], "a cautious pick is a Decisions result and is reused");
+  assert.equal(transport.calls.length, 1);
 });
 
 test("a refusal and a 403 leave the spawn untouched", async () => {

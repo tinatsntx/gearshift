@@ -25,12 +25,12 @@ import {
   looksOpaque, parseResponse, redactSecrets, truncatePrompt, usageFrom,
 } from "./decisions.mjs";
 import { allowWithUpdatedInput, extractPromptText, isSpawnTool, normalizeHookInput, systemMessageOnly } from "./hookio.mjs";
-import { buildUpdatedInput, eligiblePresets, forkMode, isPinned, pickFallback, presetById } from "./presets.mjs";
+import { buildUpdatedInput, coveringPreset, eligiblePresets, forkMode, heavierOf, isPinned, pickFallback, presetById } from "./presets.mjs";
 
 export const REASONS = [
   "not_spawn_tool", "mode_off", "pinned", "skipped_full_history_fork", "unknown_fork_mode",
   "no_eligible_candidate", "single_candidate", "no_credential", "no_task_text", "cache_hit",
-  "selected", "abstain", "low_confidence", "refusal", "timeout", "api_auth", "access_denied",
+  "selected", "cautious", "abstain", "low_confidence", "refusal", "timeout", "api_auth", "access_denied",
   "rate_limited", "api_unavailable", "invalid_response", "request_too_large", "internal_error",
   "catalog_missing", "catalog_stale", "catalog_mismatch", "manual_override", "manual_preset_unavailable",
 ];
@@ -140,12 +140,29 @@ export async function decideRoute(subject, deps) {
   if (answer.kind === "refusal") return done("passthrough", "none", "refusal", { apiCalled: true, usage, details });
   if (answer.choice === ABSTAIN) return fallback("abstain", { apiCalled: true, usage, confidence: answer.confidence });
   if (answer.confidence < config.min_confidence) {
-    // Not confident enough to act on. What it leaned toward is still recorded
-    // (a preset id, a model name and an effort; never content), so the
-    // threshold can be judged against real decisions instead of guessed.
+    // Decisions is not confident in its top choice. That is usually because
+    // its estimate is split between neighbouring presets, not because it has
+    // no idea: a hard task splits across the deep presets, a small one across
+    // the light ones. Dropping to a fixed middling default would throw that
+    // away, so the cautious pick is used instead: never lighter than what
+    // Decisions leaned toward, and heavy enough to cover min_confidence of
+    // its estimate. It is labeled "cautious", never "selected".
     const leaned = presetById(candidates, answer.choice);
+    // What it leaned toward is recorded (a preset id, a model name and an
+    // effort; never content), so the setting can be judged on real decisions.
     if (leaned) Object.assign(details, { leaned_preset: leaned.id, leaned_model: leaned.model, leaned_effort: leaned.effort });
-    return fallback("low_confidence", { apiCalled: true, usage, confidence: answer.confidence });
+    const covering = coveringPreset(candidates, answer.probabilities, answer.choice, config.min_confidence);
+    // Without a usable breakdown, the heavier of the lean and the local default is all that is known.
+    const cautious = covering?.preset ?? heavierOf(candidates, leaned, local);
+    if (!covering && (!cautious || cautious.id === local?.id)) {
+      return fallback("low_confidence", { apiCalled: true, usage, confidence: answer.confidence });
+    }
+    if (covering) details.cover = covering.cover;
+    if (cache) {
+      putCached(cache, key, { preset_id: cautious.id, confidence: answer.confidence }, { now });
+      cacheDirty = true;
+    }
+    return done("routed", "decisions", "cautious", { preset: cautious, confidence: answer.confidence, usage, apiCalled: true, details });
   }
   const selected = presetById(candidates, answer.choice);
   if (cache) {

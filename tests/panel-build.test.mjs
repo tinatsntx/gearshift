@@ -79,6 +79,14 @@ test("the routing badge says plainly what happened, in every case", async () => 
     badge({ source: "fallback", reason: "low_confidence", model: "gpt-6.1-sol", effort: "medium", effective_model: "gpt-6.1-sol", effective_effort: "medium", confidence: 0.39, leaned_model: "gpt-6.1-sol", leaned_effort: "xhigh" }).text,
     "Fallback gpt-6.1-sol · medium (Decisions was not confident enough; it leaned gpt-6.1-sol · xhigh at 39%) · verified",
   );
+  assert.deepEqual(
+    { ...badge({ reason: "cautious", model: "gpt-6.1-sol", effort: "xhigh", effective_model: "gpt-6.1-sol", effective_effort: "xhigh", confidence: 0.37, leaned_model: "gpt-6.1-sol", leaned_effort: "xhigh", cover: 0.67, decide_ms: 240 }) },
+    { text: "Auto-selected gpt-6.1-sol · xhigh · 240 ms (Decisions, cautious pick covering 67%) · verified", tone: "ok" },
+  );
+  assert.equal(
+    badge({ reason: "cautious", model: "gpt-6.1-sol", effort: "medium", effective_model: "gpt-6.1-sol", effective_effort: "medium", leaned_model: "gpt-6-luna", leaned_effort: "high", cover: 0.65, decide_ms: null }).text,
+    "Auto-selected gpt-6.1-sol · medium (Decisions, it leaned gpt-6-luna · high; cautious pick covering 65%) · verified",
+  );
   assert.equal(badge({ source: "manual", reason: "manual_override" }).text, "Manual gpt-6-luna · low · verified");
   assert.equal(badge({ dry_run: true, applied: false, verified: null, effective_model: "gpt-6.1-sol", effective_effort: "low" }).text, "Preview: would pick gpt-6-luna · low, not applied · ran as gpt-6.1-sol · low");
   assert.equal(badge({ status: "passthrough", source: "none", reason: "mode_off", model: null, effort: null, verified: null, effective_model: "gpt-6.1-sol", effective_effort: "low" }).text, "Routing off · Codex's own settings · ran as gpt-6.1-sol · low");

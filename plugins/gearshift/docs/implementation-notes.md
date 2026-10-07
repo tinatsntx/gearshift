@@ -52,7 +52,11 @@ The helper lives in the repository's `desktop/` folder and is bundled into one f
 4. Nothing to classify on: local default, no call.
 5. Cache hit: use it. The key includes the scope, so a main turn never reuses a subagent's answer.
 6. One Decisions call within the deadline, never retried.
-7. Refusal or 403: no choice. Abstain, low confidence, or any error: the local default, labeled as a fallback. Otherwise the chosen preset, which is cached.
+7. Refusal or 403: no choice. Abstain or any error: the local default, labeled as a fallback.
+8. Confident (at or above `min_confidence`): the top choice, labeled "selected" and cached.
+9. Not confident: the cautious pick, labeled "cautious" and cached. Decisions gives every preset a probability. Starting from its top choice, move to a heavier preset until the presets at or below it hold `min_confidence` of that estimate. Never lighter than the top choice. With no usable breakdown, the heavier of the top choice and the local default; when that is the default itself, it is a "low_confidence" fallback as before.
+
+Presets are listed lightest first, and that order is the only notion of "heavier" there is.
 
 `routeSpawn` runs its own checks first (not a spawn, off, pinned, unknown or full-history fork) and turns "no choice" into "leave the spawn unchanged". `routeMainTurn` honors an explicit model choice first (no call), and turns a refusal or 403 into "blocked": the turn is not started by itself. Preview decides and records in both, and applies in neither.
 
@@ -98,8 +102,8 @@ A stopped or failed turn leaves queued messages waiting for the user. After a he
 
 ## Measured, not assumed
 
-- On Windows each hook is started through PowerShell (a quoting workaround for older Codex builds). On the development machine that costs about 360 ms per hook against about 80 ms for Node alone. Keep-alive does not touch this; removing the wrapper would change the hook definition and require the hooks to be trusted again.
-- The default `min_confidence` of 0.6 is uncalibrated. With six presets and an abstain option, Decisions' confidence in its top choice was below 0.6 for most ordinary prompts tried during 0.4.0 acceptance, so most of them took the local default. See `docs/RELEASE.md`.
+- On Windows each hook is started through PowerShell (a quoting workaround for older Codex builds). On the development machine that costs about 360 ms per hook against about 80 ms for Node alone. Keep-alive does not touch this. The wrapper was kept: a replacement cannot be tried on the real host without the hooks being trusted again, and a wrong one would stop routing altogether.
+- With six presets and an abstain option, Decisions' confidence in its top choice was below 0.6 for most ordinary prompts tried during 0.4.0 acceptance. A real answer showed why: for a hard task the estimate was split across the deep presets (0.46 and 0.31) with only 0.21 on anything lighter. That is what the cautious pick is built on. See `docs/RELEASE.md`.
 
 ## Not built yet
 

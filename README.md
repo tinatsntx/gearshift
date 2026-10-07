@@ -17,7 +17,7 @@ On Windows Codex 0.162.0-alpha.2, on 2026-10-07, with the built 0.4.0 package ru
 - **A Decisions-selected main task, verified.** A composer task was classified by Decisions, started with the chosen model and effort, and Codex's own session file confirmed it ran with them.
 - **Every composer turn ran with exactly what Gearshift asked for**, six out of six, including a follow-up and two explicit choices.
 - **Subagent settings applied and verified, but not yet from a Decisions selection.** Codex encrypts a subagent's task message before a hook can read it, so Decisions sees only the task name. It abstained or was not confident enough both times, and the local default was applied.
-- **Most ordinary prompts took the local default.** Three of the four classified composer turns fell below the 0.6 confidence threshold. That threshold is uncalibrated.
+- **Most ordinary prompts were not a confident pick.** Three of the four classified composer turns fell below the 0.6 confidence threshold and, under the rule then in force, took the local default. That rule has been replaced: below the threshold Gearshift now takes a cautious pick from Decisions' full estimate, never lighter than its top choice. The new rule was checked against a real answer but has not yet been observed live.
 - **The pooled connection is faster.** Three calls on a fresh connection took 349 to 1054 ms; three on the pooled connection took 220 to 282 ms and all reused the socket. A handful of calls on one computer, not a guarantee.
 - **The helper re-reads the model list by itself** after Codex moves or updates.
 

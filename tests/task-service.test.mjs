@@ -258,10 +258,10 @@ test("a task carries the access level chosen for it, into the thread and across 
   assert.equal(first.status, "started");
   assert.equal(h.sent().find((entry) => entry.method === "thread/start").params.sandbox, "read-only");
   assert.equal(h.task(first.task_id).sandbox, "read-only");
-  // Not confident enough: the local default is applied and the panel is told what Decisions leaned toward.
+  // Not confident in its top choice: the cautious pick is applied, and the panel is told what Decisions leaned toward and how much is covered.
   assert.deepEqual(
-    [first.routing.source, first.routing.reason, first.routing.model, first.routing.effort, first.routing.confidence, first.routing.leaned_model, first.routing.leaned_effort],
-    ["fallback", "low_confidence", "gpt-6.1-sol", "medium", 0.39, "gpt-6.1-sol", "xhigh"],
+    [first.routing.source, first.routing.reason, first.routing.model, first.routing.effort, first.routing.confidence, first.routing.leaned_model, first.routing.leaned_effort, first.routing.cover],
+    ["decisions", "cautious", "gpt-6.1-sol", "xhigh", 0.39, "gpt-6.1-sol", "xhigh", 1],
   );
   await h.waitFor("turn_completed");
   await assert.rejects(h.service.submit({ cwd: h.home, text: TASK, client_message_id: id(), sandbox: "everything" }), (error) => error.code === "sandbox_invalid");
