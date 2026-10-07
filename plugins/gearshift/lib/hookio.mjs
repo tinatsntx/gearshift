@@ -71,7 +71,7 @@ export function normalizeHookInput(raw) {
 
 /** Matches `spawn_agent`, a namespaced `x.spawn_agent`, and the `Agent` alias. */
 export function isSpawnTool(toolName) {
-  return typeof toolName === "string" && (toolName === "Agent" || /(^|[^A-Za-z0-9_])spawn_agent$/.test(toolName));
+  return typeof toolName === "string" && (toolName === "Agent" || toolName === "collaborationspawn_agent" || /(^|[^A-Za-z0-9_])spawn_agent$/.test(toolName));
 }
 
 /** The task prompt of a spawn: `message`, or the text parts of `items`. */

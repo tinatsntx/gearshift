@@ -176,7 +176,7 @@ test("tool_input delivered as a JSON string is still routed", async () => {
 });
 
 test("the Agent alias and a namespaced tool name are recognized", async () => {
-  for (const name of ["Agent", "collaboration.spawn_agent", "functions.collaboration.spawn_agent"]) {
+  for (const name of ["Agent", "collaborationspawn_agent", "collaboration.spawn_agent", "functions.collaboration.spawn_agent"]) {
     const result = await routeSpawn(hookInput({}, { tool_name: name }), deps());
     assert.equal(result.entry?.status, "routed", name);
   }

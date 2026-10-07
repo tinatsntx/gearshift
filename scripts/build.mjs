@@ -1,9 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { build } from "esbuild";
+import { windowsHookCommand } from "./windows-hook.mjs";
+import { buildPanel } from "./panel-build.mjs";
 const version="0.3.0",out=path.resolve("dist");fs.mkdirSync(out,{recursive:true});
-const ui=await build({entryPoints:["apps/panel/panel.mjs"],bundle:true,write:false,format:"iife",platform:"browser",target:"es2022",minify:true});
-fs.writeFileSync(path.join(out,"panel.html"),fs.readFileSync("apps/panel/panel.html","utf8").replace("/*GEARSHIFT_APP*/",ui.outputFiles[0].text.replaceAll("</script","<\\/script")));
+fs.writeFileSync(path.join(out,"panel.html"),await buildPanel("apps/panel/panel.mjs","apps/panel/panel.html"));
 if(process.argv.includes("--service-only"))process.exit(0);
 if(process.platform!=="win32")throw Error("desktop_packaging_requires_windows");
 const publicDir=path.join(out,`gearshift-${version}`),desktopDir=path.join(out,`gearshift-desktop-${version}`);
@@ -16,7 +17,11 @@ for(const name of ["open","stop"])fs.copyFileSync(`desktop/${name}.mjs`,path.joi
 fs.cpSync("desktop/windows",desktopDir,{recursive:true});fs.mkdirSync(path.join(desktopDir,"runtime"),{recursive:true});fs.copyFileSync(process.execPath,path.join(desktopDir,"runtime/node.exe"));
 const nativeRoot=path.join(desktopDir,"plugins/gearshift");fs.mkdirSync(path.join(nativeRoot,"runtime"),{recursive:true});fs.copyFileSync(process.execPath,path.join(nativeRoot,"runtime/node.exe"));
 const hooksFile=path.join(nativeRoot,"hooks/hooks.json"),hooks=JSON.parse(fs.readFileSync(hooksFile));
-for(const events of Object.values(hooks.hooks))for(const event of events)for(const hook of event.hooks){ hook.command=hook.command.replace(/^node /,'"${PLUGIN_ROOT}/runtime/node.exe" '); hook.commandWindows='call '+hook.command; }
+for(const events of Object.values(hooks.hooks))for(const event of events)for(const hook of event.hooks){
+  const script=/hooks\/([a-z_]+\.mjs)/.exec(hook.command)?.[1];
+  hook.command=hook.command.replace(/^node /,'"${PLUGIN_ROOT}/runtime/node.exe" ');
+  hook.commandWindows=windowsHookCommand(script);
+}
 fs.writeFileSync(hooksFile,JSON.stringify(hooks,null,2)+"\n");
 fs.mkdirSync(path.join(desktopDir,".agents/plugins"),{recursive:true});fs.copyFileSync(".agents/plugins/marketplace.json",path.join(desktopDir,".agents/plugins/marketplace.json"));
 for(const dir of [publicDir,desktopDir])fs.copyFileSync("LICENSE",path.join(dir,"LICENSE"));

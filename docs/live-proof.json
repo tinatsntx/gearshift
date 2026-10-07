@@ -1,7 +1,7 @@
 {
   "version": "0.3.0",
   "max_requests": 6,
-  "requests": 3,
+  "requests": 6,
   "stages": [
     {
       "stage": "connection",
@@ -38,16 +38,63 @@
       "input_tokens": null,
       "latency_ms": 0,
       "api_called": false
+    },
+    {
+      "stage": "native_attempt_4",
+      "reason": "unreported_result",
+      "api_called": true,
+      "input_tokens": null
+    },
+    {
+      "stage": "native_attempt_5",
+      "reason": "timeout",
+      "api_called": true,
+      "input_tokens": null,
+      "latency_ms": 428
+    },
+    {
+      "stage": "native_attempt_6",
+      "reason": "abstain",
+      "source": "fallback",
+      "api_called": true,
+      "input_tokens": 305,
+      "latency_ms": 551
     }
   ],
   "native_verified": false,
-  "host_version": "0.160.1",
+  "host_version": "0.162.0-alpha.2",
   "limitations": [
     "Synthetic calls establish connectivity and selection only; not quality or savings.",
     "Native host application and effective child settings require separate correlated evidence."
   ],
-  "native_status": "unsupported",
+  "native_status": "host_rewrite_verified",
   "native_evidence": {
+    "package_version": "0.3.0",
+    "host_identity": "Codex Desktop:0.162.0-alpha.2",
+    "parent_model": "gpt-6.1-sol",
+    "parent_effort": "high",
+    "spawn_model_unset": true,
+    "spawn_effort_unset": true,
+    "fork_turns": "none",
+    "tool_use_id": "call_5ab3650d7aa0421caf112336461d746b",
+    "child_thread_id": "01a11400-07f9-7b60-a130-8a15b42a48c9",
+    "api_reason": "abstain",
+    "api_confidence": 0.24,
+    "api_latency_ms": 551,
+    "api_input_tokens": 305,
+    "recommendation_source": "fallback",
+    "hook_updated_model": "gpt-6-luna",
+    "hook_updated_effort": "high",
+    "post_requested_model": "gpt-6-luna",
+    "post_requested_effort": "high",
+    "effective_model": "gpt-6-luna",
+    "effective_effort": "high",
+    "effective_verified": true,
+    "message_readable": false,
+    "result": "Host rewrite verified; genuine Decisions-selected native acceptance not met."
+  },
+  "temporary_settings_restored": true,
+  "previous_native_evidence": {
     "package_version": "0.3.0",
     "host_identity": "Codex Desktop:0.160.1",
     "parent_model": "gpt-6.1-sol",
@@ -64,5 +111,6 @@
     "launch_error": "hook exited with code 1",
     "result": "Failed to demonstrate hook-applied routing; tested installation unsupported."
   },
-  "temporary_settings_restored": true
+  "host_rewrite_verified": true,
+  "decisions_selection_verified": false
 }

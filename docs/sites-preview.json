@@ -1,0 +1,17 @@
+{
+  "project_id": "appgprj_6ac5a29dd03c8191abdf2ee107ed54da",
+  "url": "https://gearshift-preview.tinatsntx.chatgpt.site",
+  "audience": "owner-private",
+  "source_commit": "7e102c58684c6208173f2ab402ee4a6fd8e27fbd",
+  "version_id": "appgprj_6ac5a29dd03c8191abdf2ee107ed54da~appgver_283c1f8e759081918bd73ca5b2bb0bcd",
+  "deployment_id": "appgdep_6ac5a97f00e0819180c60d7af6027d42",
+  "deployment_status": "succeeded",
+  "mcp_url": "https://gearshift-preview.tinatsntx.chatgpt.site/mcp",
+  "plugin_id": "plugin_asdk_app_sites_71a4b7514ce48191b223cd0681eafddd",
+  "desktop_pairing_started": true,
+  "desktop_paired": true,
+  "plugin_connected": true,
+  "browser_panel_verified": true,
+  "remote_settings_processed": true,
+  "mounted_panel_verified": false
+}

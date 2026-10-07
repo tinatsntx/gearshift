@@ -209,7 +209,7 @@ test("catalog: command per platform, staleness, and corruption", (t) => {
 // ---- hook payload helpers --------------------------------------------------
 
 test("hook input: spawn tool names, prompt text, agent ids", () => {
-  for (const name of ["spawn_agent", "Agent", "collaboration.spawn_agent", "functions.collaboration.spawn_agent"]) assert.equal(isSpawnTool(name), true, name);
+  for (const name of ["spawn_agent", "Agent", "collaborationspawn_agent", "collaboration.spawn_agent", "functions.collaboration.spawn_agent"]) assert.equal(isSpawnTool(name), true, name);
   // Another server's MCP tool that happens to be called spawn_agent is not Codex's own spawn.
   for (const name of ["mcp__x__spawn_agent", "shell", "wait_agent", "respawn_agent", "spawn_agents_on_csv", "agent", "", null, undefined]) assert.equal(isSpawnTool(name), false, String(name));
   assert.equal(extractPromptText({ message: "hello" }), "hello");

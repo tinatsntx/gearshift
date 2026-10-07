@@ -60,7 +60,7 @@ test("the routing hook is synchronous, bounded, and targets spawns only", () => 
   assert.notEqual(command.async, true, "an async hook cannot rewrite a tool call");
   assert.ok(command.timeout <= 10);
   for (const anchored of [new RegExp(`^(?:${pre[0].matcher})$`), new RegExp(pre[0].matcher)]) {
-    for (const name of ["spawn_agent", "Agent", "collaboration.spawn_agent"]) assert.ok(anchored.test(name), name);
+    for (const name of ["spawn_agent", "Agent", "collaborationspawn_agent", "collaboration.spawn_agent"]) assert.ok(anchored.test(name), name);
     for (const name of ["shell", "apply_patch", "wait_agent", "send_message", "mcp__fs__read"]) assert.ok(!anchored.test(name), name);
   }
   const post = hooks.hooks.PostToolUse[0];

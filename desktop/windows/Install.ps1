@@ -4,6 +4,10 @@ $gearshiftBase = Join-Path $env:LOCALAPPDATA 'GearshiftDesktop'
 $gearshiftTarget = [IO.Path]::GetFullPath((Join-Path $gearshiftBase '0.3.0'))
 if (-not $gearshiftTarget.StartsWith([IO.Path]::GetFullPath($gearshiftBase) + '\', [StringComparison]::OrdinalIgnoreCase)) { throw 'Invalid install target' }
 New-Item -ItemType Directory -Path $gearshiftTarget -Force | Out-Null
+if ((Test-Path -LiteralPath (Join-Path $gearshiftTarget 'runtime\node.exe')) -and (Test-Path -LiteralPath (Join-Path $gearshiftTarget 'desktop\stop.mjs'))) {
+  & (Join-Path $gearshiftTarget 'runtime\node.exe') (Join-Path $gearshiftTarget 'desktop\stop.mjs')
+  Start-Sleep -Milliseconds 250
+}
 # Copy using literal discovered names, avoiding shell-expanded source paths.
 Get-ChildItem -LiteralPath $PSScriptRoot | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $gearshiftTarget -Recurse -Force }
 $gearshiftHost = Get-ChildItem -LiteralPath (Join-Path $env:LOCALAPPDATA 'OpenAI\Codex\bin') -Filter codex.exe -Recurse -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName
