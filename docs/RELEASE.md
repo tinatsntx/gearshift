@@ -1,4 +1,6 @@
-# Gearshift 0.3 release evidence
+# Gearshift 0.3.1 release evidence
+
+The persistent background repair is documented in [BACKGROUND-ACCEPTANCE.md](BACKGROUND-ACCEPTANCE.md). Current local checks pass 133/133 in both Windows launch contexts; the compatible private Sites worker shipped before the updated companion. Older observations below are historical 0.3 evidence and do not replace current readiness or release acceptance. Automatic main-model selection and a genuine Decisions-selected native spawn remain unmet.
 
 Apache 2.0 open-source development preview. The hosted preview remains owner-private; public directory submission is a separate release action.
 

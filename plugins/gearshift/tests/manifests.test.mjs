@@ -92,7 +92,7 @@ test("the local marketplace points at this plugin", () => {
 
 test("the skill tells the parent how to spawn so routing applies", () => {
   const skill = fs.readFileSync(path.join(ROOT, "skills", "gearshift", "SKILL.md"), "utf8");
-  assert.match(skill, /^---\nname: gearshift\ndescription: .+\n---\n/);
+  assert.match(skill, /^---\r?\nname: gearshift\r?\ndescription: .+\r?\n---\r?\n/);
   for (const phrase of ["fork_turns", '"none"', "task_name", "gearshift connect", "gearshift status", "reasoning_effort", "/hooks"]) {
     assert.ok(skill.includes(phrase), phrase);
   }

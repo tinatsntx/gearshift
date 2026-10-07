@@ -1,1 +1,25 @@
-{"name":"gearshift-workspace","version":"0.3.0","private":true,"type":"module","license":"Apache-2.0","engines":{"node":">=22"},"scripts":{"test":"node --test plugins/gearshift/tests/*.test.mjs tests/*.test.mjs","build":"node scripts/build.mjs","start":"node apps/service/server.mjs"},"dependencies":{"@modelcontextprotocol/sdk":"^1.0.0","@modelcontextprotocol/ext-apps":"^1.0.0","express":"^5.0.0","pg":"^8.0.0","zod":"^3.0.0"},"devDependencies":{"esbuild":"^0.28.0"}}
+{
+  "name": "gearshift-workspace",
+  "version": "0.3.1",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test plugins/gearshift/tests/*.test.mjs tests/*.test.mjs",
+    "build": "node scripts/build.mjs",
+    "start": "node apps/service/server.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@modelcontextprotocol/ext-apps": "^1.0.0",
+    "express": "^5.0.0",
+    "pg": "^8.0.0",
+    "zod": "^3.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.0"
+  }
+}

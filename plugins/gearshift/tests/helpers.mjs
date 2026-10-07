@@ -69,7 +69,7 @@ export function fakeTransport(respond = answer(), { hang = false, delayMs = 0 } 
 }
 
 export function config(overrides = {}) {
-  return { ...DEFAULT_CONFIG, ...overrides };
+  return { ...DEFAULT_CONFIG, mode:"auto", ...overrides };
 }
 
 export function credential() {

@@ -4,7 +4,7 @@ import { registerAppTool,registerAppResource,RESOURCE_MIME_TYPE } from "@modelco
 import { z } from "zod";
 import { Control,Settings } from "../service/control.mjs";
 import { D1Store } from "./store.mjs";
-const URI="ui://gearshift/panel-0.3.0-3.html",ticketSchema=z.string().regex(/^[A-Za-z0-9_-]{43}$/);
+const URI="ui://gearshift/panel-0.3.1-2.html",ticketSchema=z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 const json=(value,status=200)=>Response.json(value,{status,headers:{"Cache-Control":"no-store"}});
 const html=(value,status=200)=>new Response(value,{status,headers:{"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store","Referrer-Policy":"no-referrer","X-Content-Type-Options":"nosniff"}});
 export function createSiteHandler({store,panelHtml,iconSvg}={}){
@@ -14,7 +14,7 @@ export function createSiteHandler({store,panelHtml,iconSvg}={}){
     const body=async()=>{if(Number(request.headers.get("content-length")??0)>32768)throw Error("body_too_large");const text=await request.text();if(text.length>32768)throw Error("body_too_large");return JSON.parse(text);};
     const requireUser=()=>{if(!user)throw Error("user_required");return user;};
     try{
-      if(route==="/healthz")return json({ok:true,version:"0.3.0"});
+      if(route==="/healthz")return json({ok:true,version:"0.3.1"});
       if(route==="/favicon.svg")return new Response(iconSvg,{headers:{"Content-Type":"image/svg+xml"}});
       if(route==="/privacy")return html("<!doctype html><title>Gearshift privacy</title><h1>Gearshift private preview</h1><p>ChatGPT Sites supplies your sign-in. Gearshift stores device identifiers, settings, hashed device credentials, and operational metadata. API keys, task names, prompts, code, and local paths remain on your computer. Readable classification text is sent directly from your computer to OpenAI using your API project. Encrypted messages are excluded. Disconnect removes the paired device's saved key when its helper receives the command.</p><a href='/'>Return to Gearshift</a>");
       if(route==="/"){
@@ -35,7 +35,7 @@ export function createSiteHandler({store,panelHtml,iconSvg}={}){
         if(!token)return json({error:"device_unauthorized"},401);
         let device;try{device=await control.device(token);}catch{return json({error:"device_unauthorized"},401);}
         if(route==="/device/sync")return json(await control.sync(device.id,device.user,await body()));
-        if(route==="/device/ack"){const b=z.object({id:z.string().uuid()}).strict().parse(await body());return json({ok:await control.ack(device.id,device.user,b.id)});}
+        if(route==="/device/ack"){const b=z.object({id:z.string().uuid(),state:z.enum(["completed","failed"]).optional(),error:z.string().regex(/^[a-z_]{1,40}$/).nullable().optional()}).strict().parse(await body());return json({ok:await control.ack(device.id,device.user,b.id,b)});}
       }
       if(route==="/api/status"){requireUser();return json(await control.status(user));}
       if(route==="/api/command"&&request.method==="POST"){
@@ -48,7 +48,7 @@ export function createSiteHandler({store,panelHtml,iconSvg}={}){
         if(request.method!=="POST")return json({error:"method_invalid"},405);
         const rpc=await body();
         if(!user&&!["initialize","tools/list","resources/list","resources/templates/list","resources/read","notifications/initialized"].includes(rpc.method))return json({error:"user_required"},401);
-        const server=new McpServer({name:"gearshift",version:"0.3.0"},{capabilities:{tools:{},resources:{}}});
+        const server=new McpServer({name:"gearshift",version:"0.3.1"},{capabilities:{tools:{},resources:{}}});
         const reply=v=>({content:[{type:"text",text:JSON.stringify(v)}],structuredContent:v});
         const read=async()=>reply(await control.status(requireUser())),annotations={readOnlyHint:true,destructiveHint:false,openWorldHint:false};
         registerAppTool(server,"gearshift_open_panel",{title:"Open Gearshift",description:"Open your paired computers' connection, routing controls and live evidence.",inputSchema:{},annotations,_meta:{ui:{resourceUri:URI},"openai/ui":{entrypoints:[{type:"thread"}]}}},read);

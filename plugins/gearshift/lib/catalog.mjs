@@ -8,6 +8,7 @@ import nodeChildProcess from "node:child_process";
 import nodeFs from "node:fs";
 
 import { dataPaths } from "./config.mjs";
+import { targetHost } from "./host.mjs";
 import { isPlainObject, readJsonFile, writeFileAtomic } from "./fsutil.mjs";
 
 export const CATALOG_REASONS = ["codex_not_found", "codex_failed", "catalog_invalid"];
@@ -87,17 +88,26 @@ export function codexCommand({ env = process.env, platform = process.platform, b
 
 export function refreshCatalog({
   dataDir, fs = nodeFs, spawnSync = nodeChildProcess.spawnSync, env = process.env,
-  platform = process.platform, now = Date.now, bundled = false,
+  platform = process.platform, now = Date.now, bundled = false, host: suppliedHost,
 } = {}) {
-  const { command, args, shell } = codexCommand({ env, platform, bundled });
+  const host = suppliedHost ?? targetHost(dataDir, env);
+  const command = host.executable;
+  const args = bundled ? ["debug", "models", "--bundled"] : ["debug", "models"];
+  const shell = platform === "win32" && /\.(cmd|ps1)$/i.test(command);
+  const versionResult = spawnSync(command, ["--version"], { shell, encoding: "utf8", timeout: 5000, stdio: ["ignore", "pipe", "ignore"], windowsHide: true });
+  const version = /codex-cli\s+([\w.+-]+)/.exec(versionResult.stdout ?? "")?.[1];
+  if(versionResult.error)throw new CatalogError(versionResult.error.code==="ENOENT"?"codex_not_found":"codex_failed");
+  if (versionResult.status !== 0 || !version) throw new CatalogError("codex_failed");
   const result = spawnSync(command, args, {
     shell, encoding: "utf8", maxBuffer: 64 * 1024 * 1024, timeout: 60_000,
     stdio: ["ignore", "pipe", "ignore"], windowsHide: true,
   });
   if (result.error) throw new CatalogError(result.error.code === "ENOENT" ? "codex_not_found" : "codex_failed");
   if (result.status !== 0 || typeof result.stdout !== "string") throw new CatalogError("codex_failed");
-  const catalog = parseCatalog(result.stdout, { now });
+  const catalog = { ...parseCatalog(result.stdout, { now }), host_identity: host.originator + ":" + version };
   writeFileAtomic(dataPaths(dataDir).catalog, `${JSON.stringify(catalog, null, 2)}\n`, { fs });
+  // This identity comes from the registered executable, never a PATH catalog.
+  writeFileAtomic(dataPaths(dataDir).catalog.replace(/catalog\.json$/, "host-observed.json"),JSON.stringify({host_identity:catalog.host_identity,source:"registered_executable"}),{fs});
   return catalog;
 }
 

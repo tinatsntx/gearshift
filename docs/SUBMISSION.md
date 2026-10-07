@@ -2,7 +2,7 @@
 
 Name: Gearshift. License: Apache-2.0. Category: Productivity.
 
-Description: Inspect model and reasoning effort routing for eligible new local Codex subagents. Pair Gearshift Desktop with GitHub and use your own OpenAI API project for Decisions classification. The public plugin contains a control panel and remote MCP tools; lifecycle hooks are confined to the separately installed desktop companion.
+Description: Inspect model and reasoning effort routing for eligible new local Codex subagents. Pair Gearshift Desktop with ChatGPT Sites authentication and use your own OpenAI API project for Decisions classification. The public plugin contains a control panel and remote MCP tools; lifecycle hooks are confined to the separately installed desktop companion.
 
 Required disclosure: the desktop helper is required for local automatic routing. Public ChatGPT-only surfaces can show controls and status but do not acquire local routing capability by installing the public plugin. No publisher-funded inference is provided. Optimization presets are workload priors, not benchmark rankings or verified savings.
 

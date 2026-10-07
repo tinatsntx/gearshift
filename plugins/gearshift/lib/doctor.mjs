@@ -61,7 +61,6 @@ export function checkCodexConfig(tomlText, { pluginId = PLUGIN_ID, marketplace =
     ["pre_tool_use", "routing hook trusted", "FAIL"],
     ["session_start", "guidance hook trusted", "WARN"],
     ["post_tool_use", "recording hook trusted", "WARN"],
-    ["user_prompt_submit", "prompt hook trusted", "WARN"],
   ];
   for (const [event, label, level] of hookChecks) {
     const state = sections.get(`hooks.state."${pluginId}:hooks/hooks.json:${event}:0:0"`);

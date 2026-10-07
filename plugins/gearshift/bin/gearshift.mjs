@@ -26,6 +26,11 @@ import { appendLedger, readLedger, summarizeLedger } from "../lib/ledger.mjs";
 import { routeSpawn } from "../lib/router.mjs";
 import { clearUserPrompts } from "../lib/turns.mjs";
 
+import { ipcCall, ipcName } from "../lib/ipc.mjs";
+import { status as currentStatus } from "../lib/status.mjs";
+import { setLocalSettings } from "../lib/settings.mjs";
+import { readHost } from "../lib/host.mjs";
+import { migrateStore } from "../lib/migration.mjs";
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const VERSION = readJsonFile(path.join(ROOT, "package.json"))?.version ?? "unknown";
 const BOOLEAN_FLAGS = new Set(["json", "offline", "bundled", "stdin", "no-verify", "help", "init", "all"]);
@@ -37,7 +42,7 @@ const BILLING_NOTE =
 const DATA_NOTE =
   "Each routing call sends the subagent's task name and your parent model's name. It sends the " +
   "subagent's task text only when Codex leaves that readable, and the message you typed to Codex " +
-  "only if you turn on include_user_prompt. It never sends files, diffs, or the conversation.";
+  "only in historical manual diagnostics. The current helper excludes main prompts. It never sends files, diffs, or the conversation.";
 
 const HELP = `Gearshift ${VERSION}: automatic model and reasoning effort for Codex subagents
 
@@ -236,7 +241,7 @@ function pad(value, width) {
   return text.length >= width ? `${text.slice(0, width - 1)} ` : text.padEnd(width);
 }
 
-function commandStatus(flags, dataDir) {
+async function commandStatus(flags, dataDir) {
   const credential = loadCredential({ dataDir });
   const { config, errors } = loadConfig({ dataDir });
   const { catalog, stale, ageMs } = loadCatalog({ dataDir, maxAgeMs: config.catalog_max_age_hours * 3600 * 1000 });
@@ -245,14 +250,20 @@ function commandStatus(flags, dataDir) {
   const summary = summarizeLedger(all);
   const recent = all.filter((entry) => entry.event === "pre_tool_use" || entry.event === "cli_route").slice(-limit);
 
+  const helper=await ipcCall(dataDir,"status",{},{timeoutMs:400});
+  const readiness=helper??currentStatus(dataDir);
   if (flags.json) {
     out(JSON.stringify({
+      ...readiness,
       version: VERSION,
       connected: Boolean(credential),
       connection: credential ? { last4: credential.last4, fingerprint: credential.fingerprint.slice(0, 8), label: credential.label, source: credential.source, created_at: credential.created_at } : null,
       mode: config.mode,
       config_errors: errors,
       data_dir: dataDir,
+      pipe_name: ipcName(dataDir),
+      runtime: path.join(dataDir,"desktop",VERSION),
+      data_dir_override: Boolean(process.env.GEARSHIFT_DATA_DIR),
       catalog: catalog ? { models: catalog.models.length, fetched_at: catalog.fetched_at, stale } : null,
       summary,
       recent,
@@ -262,8 +273,12 @@ function commandStatus(flags, dataDir) {
   out(`Gearshift ${VERSION}`);
   out(`Connection   ${describeCredential(credential)}`);
   out(credential ? `             ${BILLING_NOTE}` : "             No Decisions calls are made until you run: gearshift connect");
-  out(`Mode         ${config.mode}${errors.length ? `  (config file has errors, defaults in use: ${errors.join(", ")})` : ""}`);
-  out(`Data folder  ${dataDir}`);
+  out(`Mode         ${config.mode}${errors.length ? `  (config file has errors, routing disabled: ${errors.join(", ")})` : ""}`);
+  out(`Data folder  ${dataDir}${process.env.GEARSHIFT_DATA_DIR?" (explicit override)":""}`);
+  out(`IPC pipe     ${ipcName(dataDir)}`);
+  out(`Routing      ${readiness.routing_state} / ${readiness.routing_reason}`);
+  out("Main model   automatic selection unavailable");
+  out(`Adaptive     ${readiness.decisions_selection_verified?"native selection verified":"not yet verified"}`);
   out(catalog
     ? `Model list   ${catalog.models.filter((model) => model.visibility === "list").length} models, refreshed ${age(ageMs)}${stale ? " (stale; run: gearshift catalog)" : ""}`
     : "Model list   none yet; run: gearshift catalog");
@@ -318,7 +333,7 @@ function commandCatalog(flags, dataDir) {
 async function commandRoute(flags, dataDir) {
   const has = (name) => typeof flags[name] === "string" && flags[name].trim() !== "";
   if (!has("task-name") && !has("message")) throw new UsageError("route needs --task-name some_descriptive_name (and optionally --message TEXT)");
-  const { config } = loadConfig({ dataDir });
+  const { config, errors } = loadConfig({ dataDir });
   const { catalog } = loadCatalog({ dataDir, maxAgeMs: config.catalog_max_age_hours * 3600 * 1000 });
   const credential = flags.offline ? null : loadCredential({ dataDir });
   const cache = loadCache({ dataDir });
@@ -338,7 +353,7 @@ async function commandRoute(flags, dataDir) {
   };
   // A CLI test never changes a spawn, so "off" and "dry_run" are treated as "auto" here.
   const { entry, decision, cacheDirty } = await routeSpawn(raw, {
-    config: { ...config, mode: "auto" },
+    config: { ...config, mode: errors.length?"off":"auto" },
     catalog,
     hostIdentity: catalog?.host_identity,
     credential,
@@ -382,18 +397,20 @@ function codexHome() {
   return process.env.CODEX_HOME || path.join(os.homedir(), ".codex");
 }
 
-function commandDoctor(dataDir) {
+async function commandDoctor(dataDir) {
   const checks = [];
+  const helper=await ipcCall(dataDir,"status",{},{timeoutMs:400});
   const add = (level, name, detail) => checks.push({ level, name, detail });
 
   const major = Number(process.versions.node.split(".")[0]);
   add(major >= 20 ? "PASS" : "FAIL", "node version", `node ${process.versions.node}${major >= 20 ? "" : "; Gearshift needs 20 or newer"}`);
 
-  const codex = nodeChildProcess.spawnSync(process.platform === "win32" ? "codex --version" : "codex", process.platform === "win32" ? [] : ["--version"], {
-    shell: process.platform === "win32", encoding: "utf8", timeout: 20000, stdio: ["ignore", "pipe", "ignore"], windowsHide: true,
-  });
-  if (codex.error || codex.status !== 0) add("WARN", "codex command", "codex was not found on PATH; the model list cannot be refreshed from here");
-  else add("PASS", "codex command", String(codex.stdout).trim().slice(0, 60));
+  const registered=readHost(dataDir);
+  if(!registered?.executable)add("WARN","codex command","no registered Desktop executable; run the desktop installer");
+  else {
+    const result=nodeChildProcess.spawnSync(registered.executable,["--version"],{encoding:"utf8",timeout:5000,stdio:["ignore","pipe","ignore"],windowsHide:true});
+    add(result.status===0?"PASS":"WARN","codex command",result.status===0?String(result.stdout).trim().slice(0,60):"registered Desktop executable unavailable");
+  }
 
   const home = codexHome();
   let toml = null;
@@ -416,10 +433,10 @@ function commandDoctor(dataDir) {
   else add("PASS", "installed copy", `version ${VERSION} at ${path.join(cacheRoot, VERSION)}`);
 
   const credential = loadCredential({ dataDir });
-  add(credential ? "PASS" : "WARN", "api key", credential ? describeCredential(credential) : "not connected; Gearshift uses its local default until you run: gearshift connect");
+  add(credential ? "PASS" : "WARN", "api key", credential ? describeCredential(credential) : "not connected; eligible spawns pass through until you connect");
 
   const { config, errors } = loadConfig({ dataDir });
-  add(errors.length ? "WARN" : "PASS", "gearshift config", errors.length ? `invalid, defaults in use: ${errors.join(", ")}` : `mode ${config.mode}`);
+  add(errors.length ? "WARN" : "PASS", "gearshift config", errors.length ? `invalid, routing disabled: ${errors.join(", ")}` : `mode ${config.mode}`);
   const { catalog, stale, ageMs } = loadCatalog({ dataDir, maxAgeMs: config.catalog_max_age_hours * 3600 * 1000 });
   if (!catalog) add("WARN", "model list", "none saved; run: gearshift catalog");
   else add(stale ? "WARN" : "PASS", "model list", `${catalog.models.length} models, refreshed ${age(ageMs)}`);
@@ -434,6 +451,10 @@ function commandDoctor(dataDir) {
     add("FAIL", "data folder", `cannot write to ${dataDir}`);
   }
 
+  add(helper?"PASS":"WARN","helper IPC",ipcName(dataDir));
+  add("INFO","data override",process.env.GEARSHIFT_DATA_DIR?"explicit GEARSHIFT_DATA_DIR":"canonical per-user store");
+  add("INFO","runtime location",path.join(dataDir,"desktop",VERSION));
+  add("INFO","registered host",readHost(dataDir)?.executable??"none");
   const seen = readLedger({ dataDir, limit: null }).filter((entry) => entry.event === "pre_tool_use").length;
   add("INFO", "hook activity", seen ? `${seen} spawns seen by the hook so far` : "the hook has not seen a spawn yet");
 
@@ -443,7 +464,7 @@ function commandDoctor(dataDir) {
   return failed ? 1 : 0;
 }
 
-function commandConfig(positional, dataDir) {
+async function commandConfig(positional, dataDir) {
   const action = positional[0] ?? "print";
   if (action === "init") {
     if (nodeFs.existsSync(dataPaths(dataDir).config)) {
@@ -469,14 +490,19 @@ function commandConfig(positional, dataDir) {
       err(`Not saved. That value is not valid: ${errors.join(", ")}`);
       return 1;
     }
-    out(`Set ${key} in ${writeConfig({ dataDir, raw })}`);
+    if(["mode","optimization_goal","send_prompt_text"].includes(key)){
+      const applied=await ipcCall(dataDir,"settings",{[key]:value},{timeoutMs:500});
+      if(!applied)setLocalSettings(dataDir,{[key]:value});
+    }
+    else writeConfig({ dataDir, raw });
+    out(`Set ${key} in ${dataPaths(dataDir).config}`);
     if (key === "include_user_prompt" && value !== true) clearUserPrompts({ dataDir });
     return 0;
   }
   if (action === "print") {
     const { config, path: file, exists, errors, warnings } = loadConfig({ dataDir });
     out(`# ${file}${exists ? "" : " (not created yet; these are the defaults)"}`);
-    if (errors.length) out(`# INVALID, defaults in use: ${errors.join(", ")}`);
+    if (errors.length) out(`# INVALID, routing disabled: ${errors.join(", ")}`);
     if (warnings.length) out(`# ignored: ${warnings.join(", ")}`);
     out(JSON.stringify(config, null, 2));
     return 0;
@@ -496,6 +522,7 @@ async function main() {
     return 0;
   }
   const dataDir = resolveDataDir();
+  if(process.platform==="win32"&&!process.env.GEARSHIFT_DATA_DIR)migrateStore({dataDir});
   switch (command) {
     case "connect": return commandConnect(flags, dataDir);
     case "disconnect": return commandDisconnect(dataDir);

@@ -99,8 +99,8 @@ test("preset validation returns fixed codes", () => {
 
 test("data folder resolution", () => {
   assert.equal(resolveDataDir({ env: { GEARSHIFT_DATA_DIR: path.resolve("x") }, platform: "win32" }), path.resolve("x"));
-  assert.equal(resolveDataDir({ env: { LOCALAPPDATA: "C:\\L" }, platform: "win32", homedir: "C:\\H" }), path.join("C:\\L", "Gearshift"));
-  assert.equal(resolveDataDir({ env: {}, platform: "win32", homedir: "C:\\H" }), path.join("C:\\H", "AppData", "Local", "Gearshift"));
+  assert.equal(resolveDataDir({ env: { LOCALAPPDATA: "C:\\L" }, platform: "win32", homedir: "C:\\H" }), path.join("C:\\H", ".gearshift"));
+  assert.equal(resolveDataDir({ env: {}, platform: "win32", homedir: "C:\\H" }), path.join("C:\\H", ".gearshift"));
   assert.equal(resolveDataDir({ env: { XDG_CONFIG_HOME: "/x" }, platform: "linux", homedir: "/h" }), path.join("/x", "gearshift"));
   assert.equal(resolveDataDir({ env: { PLUGIN_DATA: "/plugin" }, platform: "linux", homedir: "/h" }), path.join("/h", ".config", "gearshift"), "PLUGIN_DATA is ignored");
 });
@@ -119,14 +119,14 @@ test("config validation, merge, and load", (t) => {
   const dataDir = tmpDataDir(t);
   let loaded = loadConfig({ dataDir });
   assert.equal(loaded.exists, false);
-  assert.equal(loaded.config.mode, "auto");
+  assert.equal(loaded.config.mode, "off");
   writeConfig({ dataDir, raw: { mode: "off", deadline_ms: 900 } });
   loaded = loadConfig({ dataDir });
   assert.deepEqual([loaded.config.mode, loaded.config.deadline_ms, loaded.errors.length], ["off", 900, 0]);
   writeConfig({ dataDir, raw: { mode: "nonsense" } });
   loaded = loadConfig({ dataDir });
   assert.deepEqual(loaded.errors, ["mode_invalid"]);
-  assert.equal(loaded.config.mode, "auto", "an invalid file falls back to defaults");
+  assert.equal(loaded.config.mode, "off", "an invalid file falls back to defaults");
   fs.writeFileSync(dataPaths(dataDir).config, "{not json");
   assert.deepEqual(loadConfig({ dataDir }).errors, ["config_unreadable"]);
   writeDefaultConfig({ dataDir });

@@ -1,7 +1,7 @@
 {
   "name": "gearshift",
-  "version": "0.3.0",
-  "description": "Gearshift Desktop recommends settings for eligible new local subagents using the user's own Decisions key. Native routing requires verified host support.",
+  "version": "0.3.1",
+  "description": "Persistent background model and reasoning-effort routing for eligible new local Codex subagents.",
   "keywords": [
     "codex",
     "subagents",
@@ -22,7 +22,7 @@
       "Read"
     ],
     "defaultPrompt": [
-      "Split this work across subagents and let Gearshift pick the model for each.",
+      "Show Gearshift status and controls.",
       "Show me what Gearshift has routed so far."
     ],
     "brandColor": "#2563EB",

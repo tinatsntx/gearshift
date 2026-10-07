@@ -51,7 +51,8 @@ export function ipcServer(dataDir,token,handle) {
       if(!c.includes(10))return;handled=true;
       try {
         const req=JSON.parse(Buffer.concat(chunks).toString("utf8"));
-        if(typeof req.token!=="string" || req.token.length!==token.length || !crypto.timingSafeEqual(Buffer.from(req.token),Buffer.from(token)))return socket.end("null");
+        const current=typeof token==="function"?token():token;
+        if(typeof current!=="string" || typeof req.token!=="string" || req.token.length!==current.length || !crypto.timingSafeEqual(Buffer.from(req.token),Buffer.from(current)))return socket.end("null");
         socket.end(JSON.stringify(await handle(req.operation,req.payload))+"\n");
       }catch{socket.end("null");}
     });

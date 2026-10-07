@@ -10,7 +10,7 @@ import { z } from "zod";
 import { PostgresStore } from "./store.mjs";
 import { Control,Settings,hash,opaque } from "./control.mjs";
 import { GithubOAuth } from "./oauth.mjs";
-const URI="ui://gearshift/panel-0.3.0-3.html";
+const URI="ui://gearshift/panel-0.3.1-2.html";
 const cookie=(req,name)=>req.headers.cookie?.split(";").map(s=>s.trim()).find(s=>s.startsWith(name+"="))?.slice(name.length+1);
 export function buildApp({store,baseUrl,clientId,clientSecret,fetcher,uiHtml}={}) {
   const control=new Control(store),oauth=new GithubOAuth(store,{baseUrl,clientId,clientSecret,fetcher});
@@ -25,7 +25,7 @@ export function buildApp({store,baseUrl,clientId,clientSecret,fetcher,uiHtml}={}
   oauth.authorize=async(client,params,res)=>{
     oauth.validate(params);const state=await oauth.flow({kind:"oauth",client:client.client_id,params:{...params,resource:params.resource.toString()}});flowCookie(res,state);res.redirect(oauth.githubUrl(state));
   };
-  app.get("/healthz",(_req,res)=>res.json({ok:true,version:"0.3.0",github_configured:Boolean(clientId&&clientSecret)}));
+  app.get("/healthz",(_req,res)=>res.json({ok:true,version:"0.3.1",github_configured:Boolean(clientId&&clientSecret)}));
   app.get("/",(_req,res)=>res.type("html").send("<!doctype html><title>Gearshift</title><h1>Gearshift</h1><p>Model and reasoning effort routing for new local Codex subagents.</p><p>Install Gearshift Desktop and connect your own OpenAI API project. Keys, code and task text stay on your computer; classification text goes directly to OpenAI.</p><a href='/privacy'>Privacy</a>"));
   app.get("/privacy",(_req,res)=>res.type("text").send("Gearshift private preview. GitHub identity uses read:user, with no repository permissions. This service stores hashed authorization tokens, opaque device/task IDs, settings and operational routing metadata. It never receives API keys, task names, prompts, code or local paths. Local task classification goes directly to OpenAI on the user's API project. Devices can be disconnected from the panel. Synthetic tests do not prove quality or savings. Preview database deletion removes hosted records."));
   app.post("/device/pair/start",async(_req,res)=>{res.json(await control.startPair());});
@@ -41,10 +41,10 @@ export function buildApp({store,baseUrl,clientId,clientSecret,fetcher,uiHtml}={}
   app.post("/device/pair/claim",async(req,res)=>{const b=z.object({ticket:z.string().max(43),secret:z.string().max(43)}).strict().parse(req.body);res.json(await control.claimPair(b.ticket,b.secret));});
   app.use("/device",async(req,res,next)=>{try{const token=req.headers.authorization?.match(/^Bearer (\S+)$/)?.[1];if(!token)throw Error();req.device=await control.device(token);next();}catch{res.status(401).json({error:"device_unauthorized"});}});
   app.post("/device/sync",async(req,res)=>res.json(await control.sync(req.device.id,req.device.user,req.body)));
-  app.post("/device/ack",async(req,res)=>{const b=z.object({id:z.string().uuid()}).strict().parse(req.body);res.json({ok:await control.ack(req.device.id,req.device.user,b.id)});});
+  app.post("/device/ack",async(req,res)=>{const b=z.object({id:z.string().uuid(),state:z.enum(["completed","failed"]).optional(),error:z.string().regex(/^[a-z_]{1,40}$/).nullable().optional()}).strict().parse(req.body);res.json({ok:await control.ack(req.device.id,req.device.user,b.id,b)});});
   const auth=requireBearerAuth({verifier:oauth,requiredScopes:["gearshift"],resourceMetadataUrl:`${baseUrl}/.well-known/oauth-protected-resource/mcp`,expectedResource:new URL(`${baseUrl}/mcp`)});
   app.post("/mcp",auth,async(req,res)=>{
-    const user=req.auth.extra.user,server=new McpServer({name:"gearshift",version:"0.3.0"},{capabilities:{tools:{},resources:{}}});
+    const user=req.auth.extra.user,server=new McpServer({name:"gearshift",version:"0.3.1"},{capabilities:{tools:{},resources:{}}});
     const reply=value=>({content:[{type:"text",text:JSON.stringify(value)}],structuredContent:value});
     const read=async()=>reply(await control.status(user));
     const annotations={readOnlyHint:true,destructiveHint:false,openWorldHint:false};

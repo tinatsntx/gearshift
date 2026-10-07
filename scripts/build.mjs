@@ -3,7 +3,7 @@ import path from "node:path";
 import { build } from "esbuild";
 import { windowsHookCommand } from "./windows-hook.mjs";
 import { buildPanel } from "./panel-build.mjs";
-const version="0.3.0",out=path.resolve("dist");fs.mkdirSync(out,{recursive:true});
+const version="0.3.1",out=path.resolve("dist");fs.mkdirSync(out,{recursive:true});
 fs.writeFileSync(path.join(out,"panel.html"),await buildPanel("apps/panel/panel.mjs","apps/panel/panel.html"));
 if(process.argv.includes("--service-only"))process.exit(0);
 if(process.platform!=="win32")throw Error("desktop_packaging_requires_windows");
@@ -13,7 +13,7 @@ fs.cpSync("public-plugin",publicDir,{recursive:true});fs.cpSync("plugins/gearshi
 fs.cpSync("plugins/gearshift",path.join(desktopDir,"plugins/gearshift"),{recursive:true,filter:p=>!/(?:^|[\\/])(tests|fixtures|docs)(?:[\\/]|$)/.test(p)&&path.normalize(p)!==path.normalize("plugins/gearshift/plugin.json")});
 fs.mkdirSync(path.join(desktopDir,"desktop"),{recursive:true});
 await build({entryPoints:["desktop/helper.mjs"],outfile:path.join(desktopDir,"desktop/helper.mjs"),bundle:true,format:"esm",platform:"node",target:"node22"});
-for(const name of ["open","stop"])fs.copyFileSync(`desktop/${name}.mjs`,path.join(desktopDir,`desktop/${name}.mjs`));
+for(const name of ["open","stop","setup"])fs.copyFileSync(`desktop/${name}.mjs`,path.join(desktopDir,`desktop/${name}.mjs`));
 fs.cpSync("desktop/windows",desktopDir,{recursive:true});fs.mkdirSync(path.join(desktopDir,"runtime"),{recursive:true});fs.copyFileSync(process.execPath,path.join(desktopDir,"runtime/node.exe"));
 const nativeRoot=path.join(desktopDir,"plugins/gearshift");fs.mkdirSync(path.join(nativeRoot,"runtime"),{recursive:true});fs.copyFileSync(process.execPath,path.join(nativeRoot,"runtime/node.exe"));
 const hooksFile=path.join(nativeRoot,"hooks/hooks.json"),hooks=JSON.parse(fs.readFileSync(hooksFile));

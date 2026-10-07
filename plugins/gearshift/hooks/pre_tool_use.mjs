@@ -10,5 +10,6 @@ runHook(async()=>{
   if(!raw || !isSpawnTool(raw.tool_name))return;
   const started=Date.now();
   const result=await ipcCall(resolveDataDir(),"route",{raw,started},{timeoutMs:Math.max(1,1500-(Date.now()-started))});
-  writeHookOutput(result?.output??null);
+  const latest=loadConfig({dataDir});
+  writeHookOutput(latest.errors.length||latest.config.mode==="off"?null:result?.output??null);
 });

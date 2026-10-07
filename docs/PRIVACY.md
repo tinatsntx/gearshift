@@ -8,4 +8,4 @@ The private Sites service stores Site-scoped ChatGPT identity, opaque device/tas
 
 Hosted metadata includes connection/readiness state, recommendation and requested settings, separately verified effective settings, latency and reported usage. Unreported usage is unknown. Synthetic results do not establish routing quality or savings.
 
-Disconnect requests expire after one minute if the device is offline. Local routing continues when hosting is unavailable. Public preview retention currently lasts until database reset or owner deletion; a user-facing account deletion flow and a published support contact are required before public submission.
+Disconnect requests expire after one minute if the device is offline. Unpaired routing is independent of hosting. Paired helpers pass spawns through until their startup settings reconciliation succeeds. Durable settings revisions do not expire. Public preview retention currently lasts until database reset or owner deletion; a user-facing account deletion flow and a published support contact are required before public submission.

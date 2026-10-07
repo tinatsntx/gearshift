@@ -1,8 +1,8 @@
 {
   "name": "gearshift",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
-  "description": "Codex plugin that picks the model and reasoning effort for every subagent, using the OpenAI Decisions API on your own API key.",
+  "description": "Persistent background model and reasoning-effort routing for eligible new local Codex subagents.",
   "type": "module",
   "engines": {
     "node": ">=20"

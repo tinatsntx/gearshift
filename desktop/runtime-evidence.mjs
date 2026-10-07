@@ -22,7 +22,7 @@ export function findChildRuntime(parent, agentPath, directory) {
           if(row.type!=="turn_context")continue;
           const {model,effort}=row.payload??{};
           if(!/^gpt-[a-z0-9.-]{1,40}$/.test(model??"")||!["low","medium","high","xhigh","max","ultra"].includes(effort))return null;
-          return {child_thread_id:meta.id,effective_model:model,effective_effort:effort,effective_verified:true};
+          return {child_thread_id:meta.id,...(meta.originator&&meta.cli_version?{child_host_identity:meta.originator+":"+meta.cli_version}:{}),effective_model:model,effective_effort:effort,effective_verified:true};
         }
       }catch{}finally{if(fd!==undefined)fs.closeSync(fd);}
     }

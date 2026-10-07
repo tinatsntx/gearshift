@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Gearshift SessionStart hook.
 //
-// Gives the parent agent a short standing note on how to delegate so that
-// routing can apply. The note is fixed text; this hook makes no network call
+// Gives the parent agent a short passive scope note. Authorized bounded
+// delegation can be eligible. The note is fixed text; this hook makes no network call
 // and reads nothing but Gearshift's own config. On any problem it prints
 // nothing and exits 0.
 

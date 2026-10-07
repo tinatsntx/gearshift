@@ -23,6 +23,7 @@ const POST = path.join(ROOT, "hooks", "post_tool_use.mjs");
 const CLI = path.join(ROOT, "bin", "gearshift.mjs");
 
 function baseEnv(dataDir, extra = {}) {
+  if(!fs.existsSync(dataPaths(dataDir).config))fs.writeFileSync(dataPaths(dataDir).config,JSON.stringify({mode:"auto"}));
   fs.writeFileSync(dataPaths(dataDir).catalog,JSON.stringify(catalogFixture()));
   const env = { ...process.env, GEARSHIFT_DATA_DIR: dataDir, ...extra };
   for (const name of ["GEARSHIFT_OPENAI_API_KEY", "GEARSHIFT_PROBE", "GEARSHIFT_DECISIONS_ENDPOINT", "GEARSHIFT_CODEX_BIN"]) {
@@ -139,12 +140,12 @@ test("pre hook falls back when the API errors and never prints the response body
   assert.deepEqual([ledger(dataDir)[0].source, ledger(dataDir)[0].reason], ["fallback", "api_unavailable"]);
 });
 
-test("pre hook honors an invalid config by using defaults and saying so in the ledger", async (t) => {
+test("pre hook honors an invalid config by failing closed without a classification call", async (t) => {
   const dataDir = tmpDataDir(t);
   fs.writeFileSync(dataPaths(dataDir).config, JSON.stringify({ mode: "bogus" }));
   const result = await run(PRE, { stdin: JSON.stringify(hookInput()), env: baseEnv(dataDir) });
   assert.equal(result.stdout, "");
-  assert.equal(ledger(dataDir)[0].config_invalid, true);
+  assert.equal(ledger(dataDir)[0].reason, "config_invalid");
 });
 
 test("post hook records the agent id and requested settings, prints nothing", async (t) => {
@@ -264,6 +265,7 @@ test("cli: connect --stdin and --no-verify", async (t) => {
 test("cli: config print, init, set, and validation", async (t) => {
   const dataDir = tmpDataDir(t);
   const env = baseEnv(dataDir);
+  fs.rmSync(dataPaths(dataDir).config);
   assert.match((await cli(["config"], env)).stdout, /not created yet/);
   assert.match((await cli(["config", "init"], env)).stdout, /Wrote defaults/);
   assert.equal((await cli(["config", "set", "mode", "dry_run"], env)).code, 0);
@@ -333,7 +335,7 @@ test("session start hook adds the fixed delegation note, unless turned off", asy
   assert.equal((await run(START, { stdin, env })).stdout, "");
 });
 
-test("latest user prompt remains off in helper routing",async(t)=>{const dataDir=tmpDataDir(t);fs.writeFileSync(dataPaths(dataDir).config,JSON.stringify({include_user_prompt:true}));const server=await fakeServer(t,()=>({status:200,json:answer()}));const env=baseEnv(dataDir,{GEARSHIFT_OPENAI_API_KEY:FAKE_KEY,GEARSHIFT_DECISIONS_ENDPOINT:server.url});await run(PRE,{stdin:JSON.stringify(hookInput()),env});assert.ok(!server.requests[0].body.input.includes("user_request:"));assert.equal(ledger(dataDir)[0].user_request_sent,false);});
+test("latest user prompt remains off in helper routing",async(t)=>{const dataDir=tmpDataDir(t);fs.writeFileSync(dataPaths(dataDir).config,JSON.stringify({mode:"auto",include_user_prompt:true}));const server=await fakeServer(t,()=>({status:200,json:answer()}));const env=baseEnv(dataDir,{GEARSHIFT_OPENAI_API_KEY:FAKE_KEY,GEARSHIFT_DECISIONS_ENDPOINT:server.url});await run(PRE,{stdin:JSON.stringify(hookInput()),env});assert.ok(!server.requests[0].body.input.includes("user_request:"));assert.equal(ledger(dataDir)[0].user_request_sent,false);});
 
 test("cli: route by task name, with an optional request that respects the setting", async (t) => {
   const dataDir = tmpDataDir(t);
@@ -345,7 +347,7 @@ test("cli: route by task name, with an optional request that respects the settin
   const text = await cli(["route", "--task-name", "second_task", "--user-request", "Tidy up the config names."], env);
   assert.match(text.stdout, /--user-request was not sent because include_user_prompt is off/);
   assert.ok(!server.requests[1].body.input.includes("Tidy up"));
-  fs.writeFileSync(dataPaths(dataDir).config, JSON.stringify({ include_user_prompt: true }));
+  fs.writeFileSync(dataPaths(dataDir).config, JSON.stringify({ mode:"auto", include_user_prompt: true }));
   await cli(["route", "--task-name", "third_task", "--user-request", "Tidy up the config names."], env);
   assert.ok(server.requests[2].body.input.includes("user_request:\nTidy up the config names."));
   const status = await cli(["status"], env);

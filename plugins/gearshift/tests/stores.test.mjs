@@ -174,18 +174,18 @@ test("catalog: refresh writes the file and maps process failures to fixed reason
   const calls = [];
   const spawnSync = (command, args, options) => {
     calls.push({ command, args, options });
-    return { status: 0, stdout: RAW };
+    return { status: 0, stdout: args[0] === "--version" ? "codex-cli 0.162.0" : RAW };
   };
-  const catalog = refreshCatalog({ dataDir, spawnSync, env: {}, platform: "linux" });
+  const catalog = refreshCatalog({ dataDir, spawnSync, host:{executable:"/desktop/codex",originator:"Codex Desktop"}, env: {}, platform: "linux" });
   assert.equal(catalog.models.length, 2);
-  assert.deepEqual([calls[0].command, calls[0].args, calls[0].options.shell], ["codex", ["debug", "models"], false]);
+  assert.deepEqual([calls[0].command, calls[0].args, calls[0].options.shell], ["/desktop/codex", ["--version"], false]);
   assert.deepEqual(calls[0].options.stdio, ["ignore", "pipe", "ignore"]);
   assert.equal(loadCatalog({ dataDir }).catalog.models.length, 2);
 
   const notFound = () => ({ error: Object.assign(new Error(SENTINEL), { code: "ENOENT" }) });
-  assert.throws(() => refreshCatalog({ dataDir, spawnSync: notFound, env: {}, platform: "linux" }), (error) => error.reason === "codex_not_found" && !error.message.includes(SENTINEL));
-  assert.throws(() => refreshCatalog({ dataDir, spawnSync: () => ({ status: 1, stdout: "" }), env: {}, platform: "linux" }), (error) => error.reason === "codex_failed");
-  assert.throws(() => refreshCatalog({ dataDir, spawnSync: () => ({ status: 0, stdout: "garbage" }), env: {}, platform: "linux" }), (error) => error.reason === "catalog_invalid");
+  assert.throws(() => refreshCatalog({ dataDir, host:{executable:"/desktop/codex",originator:"Codex Desktop"}, spawnSync: notFound, env: {}, platform: "linux" }), (error) => error.reason === "codex_not_found" && !error.message.includes(SENTINEL));
+  assert.throws(() => refreshCatalog({ dataDir, host:{executable:"/desktop/codex",originator:"Codex Desktop"}, spawnSync: () => ({ status: 1, stdout: "" }), env: {}, platform: "linux" }), (error) => error.reason === "codex_failed");
+  assert.throws(() => refreshCatalog({ dataDir, host:{executable:"/desktop/codex",originator:"Codex Desktop"}, spawnSync: (_,args) => ({ status: 0, stdout: args[0]==="--version"?"codex-cli 0.162.0":"garbage" }), env: {}, platform: "linux" }), (error) => error.reason === "catalog_invalid");
 });
 
 test("catalog: command per platform, staleness, and corruption", (t) => {
@@ -197,7 +197,7 @@ test("catalog: command per platform, staleness, and corruption", (t) => {
   const dataDir = tmpDataDir(t);
   assert.deepEqual(loadCatalog({ dataDir }), { catalog: null, stale: false, ageMs: null });
   const now = fakeClock(Date.parse("2026-10-06T22:00:00.000Z"));
-  refreshCatalog({ dataDir, spawnSync: () => ({ status: 0, stdout: RAW }), env: {}, platform: "linux", now });
+  refreshCatalog({ dataDir, host:{executable:"/desktop/codex",originator:"Codex Desktop"}, spawnSync: (_,args) => ({ status: 0, stdout: args[0]==="--version"?"codex-cli 0.162.0":RAW }), env: {}, platform: "linux", now });
   assert.equal(loadCatalog({ dataDir, now, maxAgeMs: 1000 }).stale, false);
   now.advance(5000);
   const later = loadCatalog({ dataDir, now, maxAgeMs: 1000 });
@@ -275,7 +275,7 @@ test("doctor: reads sections and passes a complete config", () => {
   assert.ok(tomlSections(TOML).has('plugins."gearshift@gearshift-local"'));
   const checks = checkCodexConfig(TOML);
   const level = (name) => checks.find((item) => item.name === name)?.level;
-  for (const name of ["subagents enabled", "hooks enabled", "marketplace registered", "plugin installed", "routing hook trusted", "recording hook trusted", "guidance hook trusted", "prompt hook trusted"]) {
+  for (const name of ["subagents enabled", "hooks enabled", "marketplace registered", "plugin installed", "routing hook trusted", "recording hook trusted", "guidance hook trusted"]) {
     assert.equal(level(name), "PASS", name);
   }
   assert.equal(level("subagent default"), "INFO");
@@ -288,7 +288,7 @@ test("doctor: flags what is missing or disabled", () => {
   assert.equal(level("", "routing hook trusted"), "FAIL");
   assert.equal(level("", "recording hook trusted"), "WARN");
   assert.equal(level("", "guidance hook trusted"), "WARN");
-  assert.equal(level("", "prompt hook trusted"), "WARN");
+  assert.equal(level("", "prompt hook trusted"), undefined);
   assert.equal(level("", "subagents enabled"), "PASS", "on by default");
   assert.equal(level("[features]\nmulti_agent = false\nhooks = false\n", "subagents enabled"), "FAIL");
   assert.equal(level("[features]\nmulti_agent = false\nhooks = false\n", "hooks enabled"), "FAIL");

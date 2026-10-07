@@ -18,7 +18,7 @@ export const GOALS = ["balanced", "quality", "economy"];
 export const DEFAULT_CONFIG = Object.freeze({
   schema_version: CONFIG_SCHEMA_VERSION,
   // auto: rewrite spawns. dry_run: decide and log, change nothing. off: do nothing.
-  mode: "auto",
+  mode: "off",
   optimization_goal: "balanced",
   presets: DEFAULT_PRESETS,
   fallback_order: DEFAULT_FALLBACK_ORDER,
@@ -48,8 +48,7 @@ export const DEFAULT_CONFIG = Object.freeze({
 export function resolveDataDir({ env = process.env, platform = process.platform, homedir = os.homedir() } = {}) {
   if (env.GEARSHIFT_DATA_DIR) return path.resolve(env.GEARSHIFT_DATA_DIR);
   if (platform === "win32") {
-    const base = env.LOCALAPPDATA || path.join(homedir, "AppData", "Local");
-    return path.join(base, "Gearshift");
+    return path.join(env.USERPROFILE || homedir, ".gearshift");
   }
   const base = env.XDG_CONFIG_HOME || path.join(homedir, ".config");
   return path.join(base, "gearshift");
@@ -125,10 +124,16 @@ export function loadConfig({ dataDir, fs = nodeFs } = {}) {
   const file = dataPaths(dataDir).config;
   if (!fs.existsSync(file)) return { config: mergeConfig(null), path: file, exists: false, errors: [], warnings: [] };
   const raw = readJsonFile(file, fs);
-  if (raw === undefined) return { config: mergeConfig(null), path: file, exists: true, errors: ["config_unreadable"], warnings: [] };
+  if (raw === undefined) return { config: { ...mergeConfig(null), mode: "off" }, path: file, exists: true, errors: ["config_unreadable"], warnings: [] };
   const { errors, warnings } = validateConfig(raw);
-  if (errors.length) return { config: mergeConfig(null), path: file, exists: true, errors, warnings };
-  return { config: mergeConfig(raw), path: file, exists: true, errors: [], warnings };
+  if (errors.length) return { config: { ...mergeConfig(null), mode: "off" }, path: file, exists: true, errors, warnings };
+  const config=mergeConfig(raw);
+  // A durable local Off intent is effective even if the config rename failed.
+  // Reconciliation never clears it until config readback succeeds.
+  const intent=readJsonFile(path.join(path.dirname(file),"settings-sync.json"),fs);
+  if(intent?.pending?.values?.mode==="off")config.mode="off";
+  if(intent?.pending?.values?.send_prompt_text===false)config.send_prompt_text=false;
+  return { config, path: file, exists: true, errors: [], warnings };
 }
 
 /** Raw user config (only what the user set), or {} when absent or unreadable. */

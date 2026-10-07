@@ -6,11 +6,11 @@ Gearshift is a zero-dependency Node package. It replaces the Python `codex-decis
 
 | Path | Role |
 |---|---|
-| `hooks/hooks.json` | Wires four hooks into Codex |
+| `hooks/hooks.json` | Wires three hooks into Codex |
 | `hooks/pre_tool_use.mjs` | The routing hook. Synchronous. Prints replacement spawn arguments or nothing |
-| `hooks/session_start.mjs` | Prints the fixed delegation note |
+| `hooks/session_start.mjs` | Prints passive scope guidance |
 | `hooks/post_tool_use.mjs` | Records the spawn result. Asynchronous |
-| `hooks/user_prompt_submit.mjs` | Saves the user's prompt, only when `include_user_prompt` is on. Asynchronous |
+| `hooks/user_prompt_submit.mjs` | Historical unregistered compatibility script; current plugin does not collect main prompts |
 | `bin/gearshift.mjs` | The command line |
 | `lib/router.mjs` | `routeSpawn`: the whole decision, with every dependency injected |
 | `lib/decisions.mjs` | Request building, strict answer parsing, HTTPS transport |
@@ -25,11 +25,11 @@ Gearshift is a zero-dependency Node package. It replaces the Python `codex-decis
 
 1. Not a spawn tool: ignore.
 2. `mode` is `off`: leave unchanged.
-3. Both `model` and `reasoning_effort` already set: leave unchanged, reason `pinned`.
+3. Either `model` or `reasoning_effort` already set: leave unchanged, reason `pinned`.
 4. Unrecognized fork value: leave unchanged.
-5. Full-history fork and `convert_full_forks` off: leave unchanged.
+5. Full-history fork (regardless of legacy conversion settings): leave unchanged.
 6. Work out which presets this Codex can run. None: leave unchanged. One: use it, no call.
-7. No key: local default, no call.
+7. No key: unchanged, no call.
 8. Nothing to classify on: local default, no call.
 9. Cache hit: use it.
 10. One Decisions call within `deadline_ms`, no retries.
@@ -39,7 +39,7 @@ Any exception anywhere ends in "leave unchanged".
 
 ## Choices worth knowing
 
-**The data folder is fixed per user, not per plugin.** Codex gives hooks a `PLUGIN_DATA` folder, but the command line runs outside Codex and would not see it. Both sides read `%LOCALAPPDATA%\Gearshift` or `~/.config/gearshift`.
+**The data folder is fixed per user, not per plugin.** Codex gives hooks a `PLUGIN_DATA` folder, but the command line runs outside Codex and would not see it. Both sides read `%USERPROFILE%\.gearshift` or `~/.config/gearshift`.
 
 **`node:https` rather than `fetch`.** The routing hook's exit time is on the spawn's critical path. A pooled keep-alive socket can hold a Node process open after the response on Windows. One request with `agent: false` and `Connection: close`, a synchronous write to standard output, and an unreferenced watchdog give a prompt exit.
 
@@ -59,3 +59,5 @@ Any exception anywhere ends in "leave unchanged".
 - Choosing whether to delegate at all, and how many subagents to run.
 - A report that joins decisions with outcomes to calibrate `min_confidence` and the preset descriptions.
 - A public marketplace repository. Plugins with hooks are local installs and cannot be listed in the public directory.
+
+Persistent settings and crash recovery live in `lib/settings.mjs`. Windows migration stages and validates encrypted identities before committing and retains old stores. The canonical authenticated IPC listener owns singleton initialization; PID metadata never authorizes termination. Hosted desired settings use revisions rather than client clocks, with Off and disabled sharing winning conflicting edits. Status uses current prerequisites and correlated native evidence, never a hand-placed success proof.

@@ -1,6 +1,10 @@
-# Gearshift 0.3 — open-source development preview
+# Gearshift 0.3.1 - open-source development preview
 
 Gearshift recommends a model and **reasoning effort** for eligible new local Codex subagents using each user's own Decisions API key.
+
+Opening Gearshift shows controls without supplying work or authorizing agents. Background routing is one persistent setting across this Windows account's local projects. Fresh or invalid configuration is effectively Off. Local Codex delegates on direct request or applicable project/skill instructions; [the documented Ultra exception applies to ChatGPT Work](https://learn.chatgpt.com/docs/agent-configuration/subagents#availability). Waiting for an eligible sub-agent is normal.
+
+Automatic main-model selection remains unsupported. Genuine Decisions-selected native routing remains unverified; existing live proof establishes fallback application only. See [background routing acceptance](docs/BACKGROUND-ACCEPTANCE.md).
 
 This source contains a hook-free public plugin with an MCP Apps control panel, a GitHub OAuth MCP service, and a Windows desktop companion. API keys and task content stay local; the service receives operational metadata and accepts only settings, a fixed connection test, and disconnect commands.
 
