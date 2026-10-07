@@ -1,26 +1,33 @@
-# Gearshift 0.3.1
+# Gearshift 0.4.0
 
-Gearshift is a passive background router for eligible new local Codex subagents. Opening it shows status and settings; it does not request work or authorize delegation. One setting covers this Windows account's local projects. Local Codex delegates on direct request or applicable project/skill instructions. The Ultra exception in [Subagent availability](https://learn.chatgpt.com/docs/agent-configuration/subagents#availability) concerns ChatGPT Work.
+Gearshift chooses a model and reasoning effort for Codex work on this computer, using your own Decisions API key.
 
-The main model and running agents stay unchanged. Either explicit model or effort pins a spawn; full-history forks are preserved. Bounded forks are routed only when already appropriate to the task. Waiting for an eligible sub-agent is normal.
+- **Subagents.** With routing On, Gearshift automatically sets the model and reasoning effort of an eligible new subagent before it starts. This is a change to the spawn, not a suggestion. Preview makes the same classification, records it, and changes nothing.
+- **Main tasks.** A task you start from the Gearshift composer (the top of the Gearshift Desktop page) is classified before every turn and the turn starts with the chosen model and effort. A chat you start in the Codex app itself keeps the model you pick there: Codex gives a plugin no way to change it.
 
-Use Gearshift Desktop from Start for Background routing On/Off, API connection, pairing and diagnostics. Fresh, unreadable or invalid settings are effectively Off. Preview is a diagnostic mode: it can consume classification usage without applying recommendations. Opening, refreshing or enabling makes no connection test or agent launch.
+Opening Gearshift shows status and settings; it does not request work or authorize delegation. One setting covers this Windows account's local projects. Local Codex delegates on direct request or applicable project/skill instructions. The Ultra exception in [Subagent availability](https://learn.chatgpt.com/docs/agent-configuration/subagents#availability) concerns ChatGPT Work.
 
-Windows settings are in `%USERPROFILE%\.gearshift`; the runtime is `desktop\0.3.1` beneath it. Explicit `GEARSHIFT_DATA_DIR` overrides are supported for tests and diagnostics. The installer migrates both ordinary and MSIX legacy AppData stores without deleting recovery files. Identity conflicts leave routing off. Uninstall removes runtime and shortcuts while preserving settings and encrypted credentials.
+Running turns and active agents are never changed. Either explicit model or effort pins a spawn; full-history forks are preserved. Bounded forks are routed only when already appropriate to the task. In the composer, a message sent during a turn is queued and routed when that turn finishes. Waiting for an eligible subagent is normal.
 
-Hosted controls use ChatGPT Sites authentication and durable desired-settings revisions. A paired helper reconciles before enabling after startup. Pending is never reported as confirmed without successful local readback and revision acknowledgement. Off and disabled sharing win concurrent conflicts. An unpaired helper is independent of hosting.
+Use Gearshift Desktop from Start for the composer, routing On/Off, the API connection, pairing and diagnostics. Fresh, unreadable or invalid settings are effectively Off. Preview is a diagnostic mode: it can consume classification usage without applying anything. Opening, refreshing or enabling makes no connection test and launches no agent.
 
-Only readable subagent task text is eligible for redacted, truncated classification. Main prompts are not collected by this integration. API credentials stay Windows-encrypted locally; classification uses the user's API project, while coding stays on their Codex account. No publisher-funded key is supplied.
+Windows settings are in `%USERPROFILE%\.gearshift`; the runtime is `desktop\0.4.0` beneath it. Explicit `GEARSHIFT_DATA_DIR` overrides are supported for tests and diagnostics. The installer migrates both ordinary and MSIX legacy AppData stores without deleting recovery files. Identity conflicts leave routing off. Uninstall removes runtime and shortcuts while preserving settings and encrypted credentials.
+
+The helper looks after itself. It re-reads the model list when Codex updates or its program moves, keeps one connection to the Decisions API open while Codex is in use so a routing call skips the connection handshakes, and restarts its own Codex session if that stops.
+
+Hosted controls use ChatGPT Sites authentication and durable desired-settings revisions. A paired helper reconciles before enabling after startup. Pending is never reported as confirmed without successful local readback and revision acknowledgement. Off and disabled sharing win concurrent conflicts. An unpaired helper is independent of hosting. The hosted panel cannot start tasks.
+
+For a subagent, only its task name and, when Codex leaves it readable, its task text are eligible for redacted, truncated classification. What you type in the Codex app is not collected. For a composer task, the message you typed there is classified, plus the task's opening message for a follow-up; the agent's replies never are. API credentials stay Windows-encrypted locally and are never given to the Codex process the helper starts. Classification uses the user's API project, while coding stays on their Codex account. No publisher-funded key is supplied.
 
 | Command | Purpose |
 | --- | --- |
 | `gearshift status --json` | Local mode, readiness, evidence and diagnostics |
 | `gearshift doctor` | Resolved store, registered executable, pipe, hooks and credentials |
-| `gearshift config set mode off` | Immediately disable background routing |
-| `gearshift config set mode auto` | Enable eligible routing when prerequisites are ready |
-| `gearshift catalog` | Refresh from the registered Desktop executable, with host identity |
+| `gearshift config set mode off` | Immediately disable routing |
+| `gearshift config set mode auto` | Enable routing when prerequisites are ready |
+| `gearshift catalog` | Refresh the model list from the registered Desktop executable now |
 | `gearshift route --task-name example` | Explicit synthetic diagnostic; may consume usage, never spawns |
 
-There are three registered hooks: SessionStart guidance, PreToolUse routing and PostToolUse recording. Trust through Codex `/hooks` only when Codex requires it. The skill is passive and does not authorize delegation.
+There are three registered hooks: SessionStart guidance, PreToolUse routing and PostToolUse recording. Their definitions are unchanged from 0.3.1. Trust through Codex `/hooks` only when Codex requires it. The skill is passive and does not authorize delegation.
 
-Automatic main-model selection is unsupported. Genuine Decisions-selected native routing is not yet verified; existing live proof establishes fallback application. Presets are workload priors, not measured rankings or savings. See the repository's `docs/RELEASE.md`, `docs/BACKGROUND-ACCEPTANCE.md`, and `docs/HOST-COMPATIBILITY.md` for evidence and pending acceptance.
+What has been observed, and what has not, is in the repository's `docs/RELEASE.md` and `docs/live-proof-0.4.0.json`. In short: a Decisions-selected main task was verified end to end; subagent settings were applied and verified but not yet from a Decisions selection, because Codex encrypts subagent task messages and a task name alone rarely gives Decisions enough to go on. Presets are workload priors, not measured rankings or savings, and the confidence threshold is uncalibrated.

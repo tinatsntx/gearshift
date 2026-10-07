@@ -9,7 +9,14 @@ import { dataPaths } from "./config.mjs";
 import { estimateCostUsd } from "./decisions.mjs";
 import { ensureDir, isPlainObject, readJsonFile, writeFileAtomic } from "./fsutil.mjs";
 
-export const LEDGER_FORBIDDEN_KEYS = ["message", "prompt", "input", "items", "key", "api_key", "transcript", "tool_input", "tool_response"];
+export const LEDGER_FORBIDDEN_KEYS = [
+  "message", "prompt", "input", "items", "key", "api_key", "transcript", "tool_input", "tool_response",
+  // Composer tasks: what the user typed, what the agent said, and approval details stay out too.
+  "text", "delta", "command", "question", "answer", "answers", "cwd",
+];
+
+/** Events that can carry a Decisions call, and so count toward usage totals. */
+const USAGE_EVENTS = ["pre_tool_use", "cli_route", "connection_test", "main_turn_route"];
 const MAX_STRING = 200;
 const MAX_NOTICES = 200;
 
@@ -66,7 +73,7 @@ export function summarizeLedger(entries) {
     pinned: 0, skipped_full_fork: 0, input_tokens: 0, est_cost_usd: 0, unknown_usage_calls: 0,
   };
   for (const entry of entries) {
-    if (!["pre_tool_use", "cli_route", "connection_test"].includes(entry.event)) continue;
+    if (!USAGE_EVENTS.includes(entry.event)) continue;
     // Token use counts for both real spawns and CLI tests; spawn counts do not.
     if (entry.api_called === true) summary.decisions_calls += 1;
     if (entry.api_called === true && !Number.isInteger(entry.input_tokens)) summary.unknown_usage_calls += 1;

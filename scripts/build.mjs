@@ -3,7 +3,7 @@ import path from "node:path";
 import { build } from "esbuild";
 import { windowsHookCommand } from "./windows-hook.mjs";
 import { buildPanel } from "./panel-build.mjs";
-const version="0.3.1",out=path.resolve("dist");fs.mkdirSync(out,{recursive:true});
+const version="0.4.0",out=path.resolve("dist");fs.mkdirSync(out,{recursive:true});
 fs.writeFileSync(path.join(out,"panel.html"),await buildPanel("apps/panel/panel.mjs","apps/panel/panel.html"));
 if(process.argv.includes("--service-only"))process.exit(0);
 if(process.platform!=="win32")throw Error("desktop_packaging_requires_windows");

@@ -1,0 +1,261 @@
+{
+  "version": "0.4.0",
+  "max_requests": 15,
+  "requests": 12,
+  "measured_on": "2026-10-07",
+  "how": "The built 0.4.0 package's helper, started against a throwaway store, with the real Codex Desktop program and the real Decisions API on the owner's dedicated API project. Nothing was installed and the installed 0.3.1 helper, its store and its settings were not touched. The throwaway store was deleted afterwards.",
+  "desktop_program": "Codex Desktop:0.162.0-alpha.2",
+  "composer_session": "gearshift:0.162.0-alpha.2",
+  "decisions_calls": {
+    "benchmark": 6,
+    "composer_main_turns": 4,
+    "subagents": 2,
+    "total": 12,
+    "input_tokens_reported": 5475
+  },
+  "benchmark": {
+    "note": "One computer, one moment, a handful of calls. Not a latency guarantee and not evidence of routing quality.",
+    "keep_open_request_ms": 978,
+    "fresh_connection": {
+      "calls": 3,
+      "min_ms": 349,
+      "median_ms": 410,
+      "max_ms": 1054,
+      "over_1500_ms": 0
+    },
+    "pooled_connection": {
+      "calls": 3,
+      "min_ms": 220,
+      "median_ms": 240,
+      "max_ms": 282,
+      "over_1500_ms": 0
+    },
+    "pooled_calls_that_reused_a_socket": 3,
+    "rows": [
+      {
+        "mode": "fresh_connection",
+        "task": "small",
+        "choice": "luna_fast",
+        "confidence": 0.95,
+        "input_tokens": 432,
+        "decide_ms": 1054,
+        "socket_reused": false,
+        "connect_ms": 62,
+        "tls_ms": 114
+      },
+      {
+        "mode": "pooled_connection",
+        "task": "small",
+        "choice": "luna_fast",
+        "confidence": 0.95,
+        "input_tokens": 432,
+        "decide_ms": 282,
+        "socket_reused": true,
+        "connect_ms": null,
+        "tls_ms": null
+      },
+      {
+        "mode": "fresh_connection",
+        "task": "large",
+        "choice": "sol_deep",
+        "confidence": 0.37,
+        "input_tokens": 457,
+        "decide_ms": 349,
+        "socket_reused": false,
+        "connect_ms": 28,
+        "tls_ms": 72
+      },
+      {
+        "mode": "pooled_connection",
+        "task": "large",
+        "choice": "sol_deep",
+        "confidence": 0.37,
+        "input_tokens": 457,
+        "decide_ms": 240,
+        "socket_reused": true,
+        "connect_ms": null,
+        "tls_ms": null
+      },
+      {
+        "mode": "fresh_connection",
+        "task": "small",
+        "choice": "luna_fast",
+        "confidence": 0.95,
+        "input_tokens": 432,
+        "decide_ms": 410,
+        "socket_reused": false,
+        "connect_ms": 42,
+        "tls_ms": 75
+      },
+      {
+        "mode": "pooled_connection",
+        "task": "small",
+        "choice": "luna_fast",
+        "confidence": 0.95,
+        "input_tokens": 432,
+        "decide_ms": 220,
+        "socket_reused": true,
+        "connect_ms": null,
+        "tls_ms": null
+      }
+    ]
+  },
+  "main_turns": [
+    {
+      "what": "a short, specific question about one file",
+      "source": "decisions",
+      "reason": "selected",
+      "confidence": 0.78,
+      "follow_up": false,
+      "chosen": "gpt-6-luna / low",
+      "applied": true,
+      "ran_as": "gpt-6-luna / low",
+      "matches_what_was_requested": true,
+      "decide_ms": 312,
+      "socket_reused": false,
+      "submit_to_turn_started_ms": 3565,
+      "turn_status": "completed"
+    },
+    {
+      "what": "a multi-file review for races and isolation mistakes",
+      "source": "fallback",
+      "reason": "low_confidence",
+      "confidence": 0.39,
+      "follow_up": false,
+      "chosen": "gpt-6.1-sol / medium",
+      "applied": true,
+      "ran_as": "gpt-6.1-sol / medium",
+      "matches_what_was_requested": true,
+      "decide_ms": 206,
+      "socket_reused": true,
+      "submit_to_turn_started_ms": 481,
+      "turn_status": "completed"
+    },
+    {
+      "what": "a follow-up in the same task (routed after the first turn finished)",
+      "source": "fallback",
+      "reason": "low_confidence",
+      "confidence": 0.52,
+      "follow_up": true,
+      "chosen": "gpt-6.1-sol / medium",
+      "applied": true,
+      "ran_as": "gpt-6.1-sol / medium",
+      "matches_what_was_requested": true,
+      "decide_ms": 247,
+      "socket_reused": true,
+      "submit_to_turn_started_ms": 308,
+      "turn_status": "completed"
+    },
+    {
+      "what": "a request to delegate one lookup to a subagent",
+      "source": "fallback",
+      "reason": "low_confidence",
+      "confidence": 0.31,
+      "follow_up": false,
+      "chosen": "gpt-6.1-sol / medium",
+      "applied": true,
+      "ran_as": "gpt-6.1-sol / medium",
+      "matches_what_was_requested": true,
+      "decide_ms": 290,
+      "socket_reused": true,
+      "submit_to_turn_started_ms": 567,
+      "turn_status": "completed"
+    },
+    {
+      "what": "an explicit model choice (no Decisions call)",
+      "source": "manual",
+      "reason": "manual_override",
+      "confidence": null,
+      "follow_up": false,
+      "chosen": "gpt-6-luna / low",
+      "applied": true,
+      "ran_as": "gpt-6-luna / low",
+      "matches_what_was_requested": true,
+      "decide_ms": null,
+      "socket_reused": null,
+      "submit_to_turn_started_ms": 2908,
+      "turn_status": "completed"
+    },
+    {
+      "what": "an explicit model choice, delegating one lookup",
+      "source": "manual",
+      "reason": "manual_override",
+      "confidence": null,
+      "follow_up": false,
+      "chosen": "gpt-6.1-sol / medium",
+      "applied": true,
+      "ran_as": "gpt-6.1-sol / medium",
+      "matches_what_was_requested": true,
+      "decide_ms": null,
+      "socket_reused": null,
+      "submit_to_turn_started_ms": 368,
+      "turn_status": "completed"
+    }
+  ],
+  "subagents": [
+    {
+      "what": "spawned inside composer task C, named list_every_caller_of_parse_response_read_only_lookup",
+      "tool_name": "collaborationspawn_agent",
+      "fork_mode": "bounded",
+      "message_readable": false,
+      "parent_model": "gpt-6.1-sol",
+      "source": "fallback",
+      "reason": "low_confidence",
+      "confidence": 0.49,
+      "input_tokens": 378,
+      "hook_wrote": "gpt-6.1-sol / medium",
+      "codex_was_asked_for": "gpt-6.1-sol / medium",
+      "child_ran_as": "gpt-6.1-sol / medium",
+      "child_verified": true,
+      "host_identity": "gearshift:0.162.0-alpha.2",
+      "child_host_identity": "gearshift:0.162.0-alpha.2",
+      "ipc_ms": 3,
+      "decide_ms": 246,
+      "socket_reused": true
+    },
+    {
+      "what": "spawned inside composer task C2, named print_first_line_of_one_named_file_trivial_read_only_lookup",
+      "tool_name": "collaborationspawn_agent",
+      "fork_mode": "bounded",
+      "message_readable": false,
+      "parent_model": "gpt-6.1-sol",
+      "source": "fallback",
+      "reason": "abstain",
+      "confidence": 0.5,
+      "input_tokens": 380,
+      "hook_wrote": "gpt-6.1-sol / medium",
+      "codex_was_asked_for": "gpt-6.1-sol / medium",
+      "child_ran_as": "gpt-6.1-sol / medium",
+      "child_verified": true,
+      "host_identity": "gearshift:0.162.0-alpha.2",
+      "child_host_identity": "gearshift:0.162.0-alpha.2",
+      "ipc_ms": 2,
+      "decide_ms": 213,
+      "socket_reused": true
+    }
+  ],
+  "model_list_refreshed_without_being_asked": {
+    "reason": "host_missing",
+    "result": "refreshed",
+    "host_identity": "Codex Desktop:0.162.0-alpha.2",
+    "latency_ms": 157
+  },
+  "results": {
+    "main_turn_decisions_selection_verified": true,
+    "main_turn_applied_and_verified": true,
+    "subagent_settings_applied_and_verified": true,
+    "subagent_decisions_selection_verified": false,
+    "every_turn_ran_as_requested": true
+  },
+  "findings": [
+    "Of the four composer turns that asked Decisions, one was selected (confidence 0.78) and three fell below the 0.6 threshold (0.39, 0.52, 0.31) and took the local default. The threshold is uncalibrated; with six presets and an abstain option the top choice rarely reaches 0.6 on an ordinary prompt.",
+    "Both subagent spawns carried an encrypted task message, so Decisions saw only the task name. It returned low confidence (0.49) once and abstained (0.50) once. The local default was written into the spawn and the child ran with it. A Decisions-selected subagent has still not been observed.",
+    "Shell commands failed in every live task with Codex's own Windows sandbox error 'helper_unknown_error: setup refresh had errors'. Codex's sandbox log shows the same error for the Desktop app's own sandboxed sessions since 2026-10-06 evening: its setup cannot update permissions on a Codex runtime file that another process holds open. This is independent of Gearshift and of which model ran, and routing and verification were unaffected by it. Running a composer task that executes commands successfully has therefore not been observed on this computer."
+  ],
+  "not_claimed": [
+    "routing quality",
+    "savings",
+    "latency guarantees",
+    "behavior on any other Codex version"
+  ]
+}

@@ -1,5 +1,7 @@
 # Gearshift 0.3.1 background routing acceptance
 
+> Historical record for 0.3.1. Statements below about main-model selection being unsupported describe that release. For 0.4.0, which adds main-task routing through the Gearshift composer, see [RELEASE.md](RELEASE.md).
+
 Verified on 2026-10-07 on this Windows account. Automatic main-model selection is unsupported by this plugin integration. Genuine Decisions-selected native routing remains unverified; earlier live acceptance established fallback application. This release neither collects main prompts nor introduces a task launcher.
 
 ## Implemented and observed

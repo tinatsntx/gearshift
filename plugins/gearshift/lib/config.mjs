@@ -43,7 +43,41 @@ export const DEFAULT_CONFIG = Object.freeze({
   catalog_max_age_hours: 168,
   // true writes shape-only diagnostics of each hook call to the probe folder.
   probe: false,
+  // true lets the helper refresh the model list by itself when Codex updates,
+  // the list goes stale, or the registered Codex program disappears.
+  catalog_auto_refresh: true,
+  catalog_refresh_min_minutes: 10,
+  // true keeps a connection to the Decisions API open while Codex is in use,
+  // so a routing call skips the TCP and TLS handshakes. The keep-open request
+  // reads one model record on your key, carries no task content, and is free.
+  warm_connection: true,
+  warm_interval_s: 45,
+  // How long after the last Codex activity the connection is kept open. 0 warms on activity only.
+  warm_window_minutes: 10,
+  // Tasks started from the Gearshift composer. The deadline is for the single
+  // Decisions call before a turn starts; it is never retried.
+  composer_deadline_ms: 1500,
+  // null inherits your Codex configuration. Otherwise untrusted | on-request | never.
+  composer_approval_policy: null,
+  // null inherits your Codex configuration. Otherwise read-only | workspace-write | danger-full-access.
+  composer_sandbox: null,
+  // The composer's Codex process is stopped after this long with no running task.
+  composer_idle_stop_minutes: 15,
 });
+
+export const APPROVAL_POLICIES = ["untrusted", "on-request", "never"];
+export const SANDBOX_MODES = ["read-only", "workspace-write", "danger-full-access"];
+
+/**
+ * One place for the routing time limits. The Decisions call gets the whole
+ * configured deadline; the helper and the hook each allow a little more so a
+ * result that arrives on time is never discarded on the way back.
+ */
+export function routingBudget(config) {
+  const decide_ms = Number.isInteger(config?.deadline_ms) ? config.deadline_ms : DEFAULT_CONFIG.deadline_ms;
+  const hook_ms = decide_ms + 250;
+  return { decide_ms, helper_ms: hook_ms - 50, hook_ms };
+}
 
 export function resolveDataDir({ env = process.env, platform = process.platform, homedir = os.homedir() } = {}) {
   if (env.GEARSHIFT_DATA_DIR) return path.resolve(env.GEARSHIFT_DATA_DIR);
@@ -93,8 +127,20 @@ export function validateConfig(raw) {
   if (has("min_confidence") && !(typeof raw.min_confidence === "number" && raw.min_confidence >= 0 && raw.min_confidence <= 1)) {
     errors.push("min_confidence_out_of_range");
   }
-  for (const key of ["strict_probabilities", "convert_full_forks", "send_prompt_text", "include_user_prompt", "session_guidance", "probe"]) {
+  for (const key of ["strict_probabilities", "convert_full_forks", "send_prompt_text", "include_user_prompt", "session_guidance", "probe", "catalog_auto_refresh", "warm_connection"]) {
     if (has(key) && typeof raw[key] !== "boolean") errors.push(`${key}_not_boolean`);
+  }
+  for (const [key, min, max] of [
+    ["catalog_refresh_min_minutes", 1, 1440], ["warm_interval_s", 15, 600], ["warm_window_minutes", 0, 120],
+    ["composer_deadline_ms", 100, 3000], ["composer_idle_stop_minutes", 1, 1440],
+  ]) {
+    if (has(key) && !isInt(raw[key], min, max)) errors.push(`${key}_out_of_range`);
+  }
+  if (has("composer_approval_policy") && raw.composer_approval_policy !== null && !APPROVAL_POLICIES.includes(raw.composer_approval_policy)) {
+    errors.push("composer_approval_policy_invalid");
+  }
+  if (has("composer_sandbox") && raw.composer_sandbox !== null && !SANDBOX_MODES.includes(raw.composer_sandbox)) {
+    errors.push("composer_sandbox_invalid");
   }
   if (has("convert_full_forks_to") && !(raw.convert_full_forks_to === "none" || /^[1-9][0-9]*$/.test(String(raw.convert_full_forks_to)))) {
     errors.push("convert_full_forks_to_invalid");

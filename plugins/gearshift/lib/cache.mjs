@@ -13,8 +13,9 @@ import { isPlainObject, readJsonFile, writeFileAtomic } from "./fsutil.mjs";
 export const CACHE_MAX_ENTRIES = 256;
 export const CACHE_TTL_MS = 300_000;
 
-export function cacheKey({ inputText, candidateIds, candidates, policy, hostCapabilities, promptVersion, credentialFingerprint, optimizationGoal }) {
-  const value = { inputText, candidateIds, candidates, policy, hostCapabilities, promptVersion, credentialFingerprint, optimizationGoal };
+export function cacheKey({ inputText, candidateIds, candidates, policy, hostCapabilities, promptVersion, credentialFingerprint, optimizationGoal, scope = "subagent" }) {
+  // scope is part of the key because a main turn and a subagent are judged by different instructions.
+  const value = { inputText, candidateIds, candidates, policy, hostCapabilities, promptVersion, credentialFingerprint, optimizationGoal, scope };
   return nodeCrypto.createHash("sha256").update(canonical(value), "utf8").digest("hex");
 }
 

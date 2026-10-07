@@ -1,7 +1,7 @@
 {
   "name": "gearshift",
-  "version": "0.3.1",
-  "description": "Persistent background model and reasoning-effort routing for eligible new local Codex subagents.",
+  "version": "0.4.0",
+  "description": "Automatic model and reasoning-effort routing for eligible new local Codex subagents, and for tasks started from the Gearshift composer.",
   "keywords": [
     "codex",
     "subagents",
@@ -14,8 +14,8 @@
   "hooks": "./hooks/hooks.json",
   "interface": {
     "displayName": "Gearshift Desktop",
-    "shortDescription": "Local model and reasoning-effort routing for eligible new subagents.",
-    "longDescription": "Gearshift Desktop recommends a supported model and reasoning effort for eligible new local Codex subagents using your own Decisions API key. Explicit settings and full-history forks stay unchanged. The local helper holds your encrypted credentials; Gearshift Preview provides the hosted control panel. Native coding work stays on your Codex account.",
+    "shortDescription": "Automatically sets model and reasoning effort for eligible new subagents; routes main tasks through the Gearshift composer.",
+    "longDescription": "When background routing is on, Gearshift Desktop automatically sets a supported model and reasoning effort for eligible new local Codex subagents before they start, using your own Decisions API key. Preview records the choice without applying it. Tasks you start from the Gearshift composer in Gearshift Desktop are routed the same way before every turn; a chat you start in the Codex app itself keeps the model you pick there. Explicit settings and full-history forks stay unchanged. The local helper holds your encrypted credentials; Gearshift Preview provides the hosted control panel. Coding work stays on your Codex account.",
     "developerName": "Gearshift contributors",
     "category": "Productivity",
     "capabilities": [

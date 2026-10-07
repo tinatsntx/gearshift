@@ -44,7 +44,8 @@ export function migrateStore({ dataDir = resolveDataDir(), sources = legacyStore
   const dirs = [], seen = new Set();
   for (const dir of sources) {
     if (!fs.existsSync(dir)) continue;
-    const resolved = physical(dir); const stat = fs.statSync(dir);
+    // NTFS file ids exceed 2^53; a Number inode can collide for two different stores.
+    const resolved = physical(dir); const stat = fs.statSync(dir, { bigint: true });
     const key = stat.ino ? stat.dev + ":" + stat.ino : resolved.toLowerCase();
     if (seen.has(key) || path.resolve(resolved).toLowerCase() === path.resolve(dataDir).toLowerCase()) continue;
     seen.add(key);

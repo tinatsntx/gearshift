@@ -1,7 +1,7 @@
 param([switch]$Quiet)
 $ErrorActionPreference = 'Stop'
 $gearshiftBase = [IO.Path]::GetFullPath((Join-Path $env:USERPROFILE '.gearshift\desktop'))
-$gearshiftTarget = [IO.Path]::GetFullPath((Join-Path $gearshiftBase '0.3.1'))
+$gearshiftTarget = [IO.Path]::GetFullPath((Join-Path $gearshiftBase '0.4.0'))
 if (-not $gearshiftTarget.StartsWith($gearshiftBase + '\', [StringComparison]::OrdinalIgnoreCase)) { throw 'Invalid install target' }
 if ([IO.Path]::GetFullPath($PSScriptRoot) -eq $gearshiftTarget) { throw 'Run the installer from the extracted package, outside the installed runtime' }
 New-Item -ItemType Directory -Path $gearshiftTarget -Force | Out-Null

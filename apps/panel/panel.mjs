@@ -1,5 +1,5 @@
 import { App } from "@modelcontextprotocol/ext-apps";
-const app=new App({name:"Gearshift",version:"0.3.1"},{}),root=document.querySelector("main"),web=document.documentElement.hasAttribute("data-gearshift-web");
+const app=new App({name:"Gearshift",version:"0.4.0"},{}),root=document.querySelector("main"),web=document.documentElement.hasAttribute("data-gearshift-web");
 const el=(tag,text,parent=root)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;parent.append(node);return node;};
 let state,editing=false;
 function button(text,fn,parent=root){const b=el("button",text,parent);b.onclick=async()=>{b.disabled=true;try{await fn();}catch{el("p","The request could not be completed. Reconnect and try again.");}finally{b.disabled=false;}};return b;}
@@ -7,11 +7,11 @@ async function call(name,args={}){if(web){const kind={gearshift_settings:"settin
 async function refresh(){state=await call("gearshift_status");if(!editing)render(state);}
 function select(label,options,value,parent){const wrap=el("label",label,parent),s=el("select",undefined,wrap);s.onchange=()=>editing=true;for(const v of options){const o=el("option",v,s);o.value=v;o.selected=v===value;}return s;}
 function render(data){root.replaceChildren();el("h1","Gearshift");el("p","Background routing on your computer",root).className="subtitle";
-  if(!data?.devices?.length){const card=el('section');el('h2','Connect your computer',card);el("p","No paired computer. Open Gearshift Desktop from the Start menu, connect your API project, then choose Pair with ChatGPT.",card);el("p","Your computer sends Decisions requests directly to OpenAI. Your own API project pays for classification.",card);el("p","Automatic routing needs an eligible new local Codex subagent. Parent models and active agents stay as they are.",card);button('Refresh',refresh);if(web){const privacy=el('a','Privacy');privacy.href='/privacy';}return;}
+  if(!data?.devices?.length){const card=el('section');el('h2','Connect your computer',card);el("p","No paired computer. Open Gearshift Desktop from the Start menu, connect your API project, then choose Pair with ChatGPT.",card);el("p","Your computer sends Decisions requests directly to OpenAI. Your own API project pays for classification.",card);el("p","When routing is on, Gearshift automatically sets the model and reasoning effort of eligible new local Codex subagents, and of tasks started from the Gearshift composer on your computer. A chat started in the Codex app keeps its own model.",card);button('Refresh',refresh);if(web){const privacy=el('a','Privacy');privacy.href='/privacy';}return;}
   for(const device of data.devices){const card=el("section"),s=device.status;el("h2",`Computer ${device.id.slice(0,8)}`,card);
     if(!s){el("p","Paired  ·  awaiting first status",card);continue;}
     const age=Math.max(0,Date.now()-device.last_seen);el("p",`${s.connected?"API connected":"API disconnected"}  ·  Hooks ${s.hook_readiness}  ·  ${age<30000?"Helper online":"Last status may be stale"}`,card);
-    el("p","Main-model routing: unavailable",card);
+    el("p",s.main_model_routing==="composer"?"Main tasks: routed when started from the Gearshift composer in Gearshift Desktop":"Main tasks: open Gearshift Desktop on this computer to route them",card);
     el("p",s.decisions_selection_verified?"Adaptive native selection verified":"Adaptive selection: not yet verified",card);
     el("p",s.routing_state?('Background routing '+s.routing_state+' · '+(s.routing_reason??'').replaceAll('_',' ')):"Routing status unavailable: upgrade Gearshift Desktop",card);
     const controls=el("div",undefined,card),mode=select("Background routing",["On","Off"],(device.desired_settings?.values.mode??s.routing_mode)==="auto"?"On":"Off",controls),goal=select("Goal",["balanced","quality","economy"],s.optimization_goal,controls);
@@ -23,7 +23,7 @@ function render(data){root.replaceChildren();el("h1","Gearshift");el("p","Backgr
     button("Enable preview",async()=>{await call("gearshift_settings",{device_id:device.id,settings:{mode:"dry_run"}});await refresh();},diagnostics);
     el("h3","Why not routed",diagnostics);
     for(const [reason,count]of Object.entries(s.passthrough_counts??{}))el("p",reason.replaceAll('_',' ')+': '+count,diagnostics);
-    el("p","Waiting for an eligible sub-agent is normal. Gearshift does not initiate work or authorize delegation.",card);
+    el("p","Waiting for an eligible subagent is normal. Gearshift does not initiate work or authorize delegation.",card);
     button("Apply",async()=>{const r=await call("gearshift_settings",{device_id:device.id,settings:{mode:mode.value==="On"?"auto":"off",optimization_goal:goal.value}});el("p",`Settings ${r.state}; awaiting helper confirmation.`,card);editing=false;await refresh();},controls);
     button("Test connection",async()=>{await call("gearshift_connection_test",{device_id:device.id});el("p","Test requested. It makes one Decisions request on this computer's API project.",card);},card);
     button("Disconnect",async()=>{await call("gearshift_disconnect",{device_id:device.id});el("p","Disconnect requested; awaiting helper confirmation.",card);},card);
@@ -32,7 +32,7 @@ function render(data){root.replaceChildren();el("h1","Gearshift");el("p","Backgr
     el("p",s.native_verified?"Decisions-selected native routing verified for the tested host":s.host_rewrite_verified?"Host rewrite verified  ·  Decisions-selected native test incomplete":"Native routing unverified",card);
     const table=el("table",undefined,card),head=el("tr",undefined,table);for(const title of ["Source","Recommended","Requested","Effective"])el("th",title,head);
     for(const choice of s.recent){const row=el("tr",undefined,table);el("td",`${choice.source} / ${choice.reason}`,row);el("td",pair(choice.recommended_model,choice.recommended_effort),row);el("td",pair(choice.requested_model,choice.requested_effort),row);el("td",choice.effective_verified?pair(choice.effective_model,choice.effective_effort):"Unverified",row);}
-  }el("p","Eligible new local subagents only. Synthetic tests do not establish routing quality or savings.");button("Refresh",refresh);
+  }el("p","Eligible new local subagents and Gearshift composer tasks. Synthetic tests do not establish routing quality or savings.");button("Refresh",refresh);
 }
 const pair=(model,effort)=>model?`${model} / ${effort??"unknown"}`:"Unset";
 app.ontoolresult=result=>{state=result.structuredContent;render(state);};

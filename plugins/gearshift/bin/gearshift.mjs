@@ -40,11 +40,12 @@ const BILLING_NOTE =
   "Codex coding work stays on your Codex account.";
 
 const DATA_NOTE =
-  "Each routing call sends the subagent's task name and your parent model's name. It sends the " +
-  "subagent's task text only when Codex leaves that readable, and the message you typed to Codex " +
-  "only in historical manual diagnostics. The current helper excludes main prompts. It never sends files, diffs, or the conversation.";
+  "For a subagent, each routing call sends its task name and your parent model's name, and its task " +
+  "text only when Codex leaves that readable. What you type in the Codex app is not collected. For a " +
+  "task you start from the Gearshift composer, it sends the message you typed there and, for a " +
+  "follow-up, the message that opened that task. It never sends files, diffs, or the agent's replies.";
 
-const HELP = `Gearshift ${VERSION}: automatic model and reasoning effort for Codex subagents
+const HELP = `Gearshift ${VERSION}: automatic model and reasoning effort for Codex subagents and composer tasks
 
 Usage: gearshift <command> [options]
 
@@ -277,8 +278,8 @@ async function commandStatus(flags, dataDir) {
   out(`Data folder  ${dataDir}${process.env.GEARSHIFT_DATA_DIR?" (explicit override)":""}`);
   out(`IPC pipe     ${ipcName(dataDir)}`);
   out(`Routing      ${readiness.routing_state} / ${readiness.routing_reason}`);
-  out("Main model   automatic selection unavailable");
-  out(`Adaptive     ${readiness.decisions_selection_verified?"native selection verified":"not yet verified"}`);
+  out(`Main tasks   ${readiness.main_model_routing === "composer" ? "routed when started from the Gearshift composer (Gearshift Desktop); chats in the Codex app keep their own model" : "composer routing needs the helper running; open Gearshift Desktop"}`);
+  out(`Verified     subagent: ${readiness.decisions_selection_verified ? "Decisions selection verified" : readiness.host_rewrite_verified ? "settings applied (local default), no Decisions selection yet" : "not yet"}; main task: ${readiness.main_turn_selection_verified ? "Decisions selection verified" : "not yet"}`);
   out(catalog
     ? `Model list   ${catalog.models.filter((model) => model.visibility === "list").length} models, refreshed ${age(ageMs)}${stale ? " (stale; run: gearshift catalog)" : ""}`
     : "Model list   none yet; run: gearshift catalog");
