@@ -67,14 +67,12 @@ test("the routing hook is synchronous, bounded, and targets spawns only", () => 
   assert.equal(post.matcher, pre[0].matcher);
   assert.equal(post.hooks[0].async, true);
   assert.equal(post.hooks[0].command, 'node "${PLUGIN_ROOT}/hooks/post_tool_use.mjs"');
-  assert.deepEqual(Object.keys(hooks.hooks).sort(), ["PostToolUse", "PreToolUse", "SessionStart", "UserPromptSubmit"]);
+  assert.deepEqual(Object.keys(hooks.hooks).sort(), ["PostToolUse", "PreToolUse", "SessionStart"]);
   for (const script of ["pre_tool_use.mjs", "post_tool_use.mjs", "session_start.mjs", "user_prompt_submit.mjs"]) assert.ok(fs.existsSync(path.join(ROOT, "hooks", script)));
   const start = hooks.hooks.SessionStart[0].hooks[0];
   assert.equal(start.command, 'node "${PLUGIN_ROOT}/hooks/session_start.mjs"');
   assert.notEqual(start.async, true, "session guidance must be synchronous to reach the model");
-  const prompt = hooks.hooks.UserPromptSubmit[0].hooks[0];
-  assert.equal(prompt.command, 'node "${PLUGIN_ROOT}/hooks/user_prompt_submit.mjs"');
-  assert.equal(prompt.async, true, "the prompt hook must never delay a prompt");
+  assert.equal(hooks.hooks.UserPromptSubmit, undefined, "latest user prompts are not collected");
   for (const group of Object.values(hooks.hooks)) {
     assert.equal(group.length, 1, "hook trust keys assume one group and one command per event");
     assert.equal(group[0].hooks.length, 1);

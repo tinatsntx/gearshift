@@ -9,6 +9,7 @@ import nodeFs from "node:fs";
 
 import { dataPaths } from "./config.mjs";
 import { isPlainObject, readJsonFile, writeFileAtomic } from "./fsutil.mjs";
+import { windowsProtection } from "./protection.mjs";
 
 export const KEY_ENV = "GEARSHIFT_OPENAI_API_KEY";
 
@@ -29,14 +30,24 @@ function describe(key, extra) {
 }
 
 /** GEARSHIFT_OPENAI_API_KEY wins over the saved file. Returns null when neither exists. */
-export function loadCredential({ dataDir, fs = nodeFs, env = process.env } = {}) {
+export function loadCredential({ dataDir, fs = nodeFs, env = process.env, protection = windowsProtection } = {}) {
   const fromEnv = env[KEY_ENV];
   if (typeof fromEnv === "string" && fromEnv.trim() !== "") {
     return describe(fromEnv.trim(), { label: null, created_at: null, source: "env" });
   }
   const saved = readJsonFile(dataPaths(dataDir).credentials, fs);
-  if (!isPlainObject(saved) || typeof saved.key !== "string" || saved.key === "") return null;
-  return describe(saved.key, {
+  if (!isPlainObject(saved)) return null;
+  let key;
+  try {
+    if (saved.schema_version === 2 && saved.protection === "windows_current_user") key = protection.unprotect(saved.ciphertext);
+    else if (looksLikeApiKey(saved.key)) {
+      // The legacy file is replaced only after encrypted readback succeeds.
+      saveCredential({ dataDir, fs, key: saved.key, label: saved.label, protection });
+      key = saved.key;
+    } else return null;
+    if (!looksLikeApiKey(key) || (saved.fingerprint && fingerprint(key) !== saved.fingerprint)) return null;
+  } catch { return null; }
+  return describe(key, {
     label: typeof saved.label === "string" ? saved.label : null,
     created_at: typeof saved.created_at === "string" ? saved.created_at : null,
     source: "file",
@@ -48,17 +59,24 @@ export function loadCredential({ dataDir, fs = nodeFs, env = process.env } = {})
  * where the platform honors it. On Windows the file sits under the user's
  * profile, which the default ACL already limits to that user.
  */
-export function saveCredential({ dataDir, fs = nodeFs, key, label = null, now = Date.now }) {
+export function saveCredential({ dataDir, fs = nodeFs, key, label = null, now = Date.now, protection = windowsProtection }) {
   const file = dataPaths(dataDir).credentials;
   const record = {
-    schema_version: 1,
-    key,
+    schema_version: 2,
+    protection: "windows_current_user",
+    ciphertext: protection.protect(key),
     fingerprint: fingerprint(key),
     last4: last4(key),
     label,
     created_at: new Date(now()).toISOString(),
   };
-  writeFileAtomic(file, `${JSON.stringify(record, null, 2)}\n`, { fs, mode: 0o600 });
+  const staging = `${file}.encrypted-pending`;
+  writeFileAtomic(staging, `${JSON.stringify(record, null, 2)}\n`, { fs, mode: 0o600 });
+  try {
+    const check = readJsonFile(staging, fs);
+    if (protection.unprotect(check.ciphertext) !== key) throw new Error("credential_readback_failed");
+    fs.renameSync(staging, file);
+  } finally { fs.rmSync(staging, { force: true }); }
   return { path: file, fingerprint: record.fingerprint, last4: record.last4 };
 }
 

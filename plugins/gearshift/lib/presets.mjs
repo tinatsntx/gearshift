@@ -49,13 +49,12 @@ export function presetById(presets, id) {
 }
 
 /**
- * Presets the host can actually run. With no catalog every configured preset
- * is kept and the caller is told the catalog was missing.
+ * Presets advertised by a present host catalog. Missing catalogs fail closed.
  */
 export function eligiblePresets(presets, catalog, { allowedModels = null } = {}) {
   const allowed = Array.isArray(allowedModels) ? new Set(allowedModels) : null;
   const permitted = presets.filter((preset) => !allowed || allowed.has(preset.model));
-  if (!catalog || !Array.isArray(catalog.models)) return { candidates: permitted, catalogMissing: true };
+  if (!catalog || !Array.isArray(catalog.models)) return { candidates: [], catalogMissing: true };
   const bySlug = new Map(catalog.models.map((model) => [model.slug, model]));
   const candidates = permitted.filter((preset) => {
     const model = bySlug.get(preset.model);
@@ -75,9 +74,9 @@ export function pickFallback(candidates, order) {
 
 const nonEmptyString = (value) => typeof value === "string" && value.trim() !== "";
 
-/** The parent already chose both settings; Gearshift must not touch the spawn. */
+/** Either explicit setting pins the entire spawn. */
 export function isPinned(toolInput) {
-  return nonEmptyString(toolInput?.model) && nonEmptyString(toolInput?.reasoning_effort);
+  return nonEmptyString(toolInput?.model) || nonEmptyString(toolInput?.reasoning_effort);
 }
 
 /**
@@ -103,11 +102,6 @@ export function forkMode(toolInput) {
 }
 
 /** Replacement spawn arguments: everything the parent sent, plus the pair. */
-export function buildUpdatedInput(toolInput, preset, { convert = false, forkTurnsValue = "none" } = {}) {
-  const updated = { ...toolInput, model: preset.model, reasoning_effort: preset.effort };
-  if (convert) {
-    if (Object.hasOwn(toolInput, "fork_context") && !Object.hasOwn(toolInput, "fork_turns")) updated.fork_context = false;
-    else updated.fork_turns = forkTurnsValue;
-  }
-  return updated;
+export function buildUpdatedInput(toolInput, preset) {
+  return { ...toolInput, model: preset.model, reasoning_effort: preset.effort };
 }

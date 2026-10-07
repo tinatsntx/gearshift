@@ -8,6 +8,12 @@ import http from "node:http";
 import path from "node:path";
 import test from "node:test";
 
+import { createIpcToken,ipcServer,ipcName } from "../lib/ipc.mjs";
+import { createRoutingService } from "../../../desktop/routing-service.mjs";
+import { createHttpsTransport } from "../lib/decisions.mjs";
+import { loadCredential } from "../lib/credentials.mjs";
+import { catalogFixture } from "./helpers.mjs";
+
 import { dataPaths } from "../lib/config.mjs";
 import { ABSTAIN } from "../lib/decisions.mjs";
 import { FAKE_KEY, ROOT, SENTINEL, answer, hookInput, tmpDataDir } from "./helpers.mjs";
@@ -17,6 +23,7 @@ const POST = path.join(ROOT, "hooks", "post_tool_use.mjs");
 const CLI = path.join(ROOT, "bin", "gearshift.mjs");
 
 function baseEnv(dataDir, extra = {}) {
+  fs.writeFileSync(dataPaths(dataDir).catalog,JSON.stringify(catalogFixture()));
   const env = { ...process.env, GEARSHIFT_DATA_DIR: dataDir, ...extra };
   for (const name of ["GEARSHIFT_OPENAI_API_KEY", "GEARSHIFT_PROBE", "GEARSHIFT_DECISIONS_ENDPOINT", "GEARSHIFT_CODEX_BIN"]) {
     if (!(name in extra)) delete env[name];
@@ -24,7 +31,9 @@ function baseEnv(dataDir, extra = {}) {
   return env;
 }
 
-function run(script, { stdin = "", args = [], env }) {
+async function run(script, { stdin = "", args = [], env }) {
+  let server;
+  if(script===PRE||script===POST){const dataDir=env.GEARSHIFT_DATA_DIR;const service=createRoutingService({dataDir,transport:createHttpsTransport(),endpoint:env.GEARSHIFT_DECISIONS_ENDPOINT,credentialLoader:()=>loadCredential({dataDir,env}),identityLoader:()=>"test:1"});server=ipcServer(dataDir,createIpcToken(dataDir),(op,payload)=>op==="route"?service.route(payload):service.record(payload));await new Promise(r=>server.listen(ipcName(dataDir),r));}
   return new Promise((resolve) => {
     const started = Date.now();
     const child = spawn(process.execPath, [script, ...args], { env, stdio: ["pipe", "pipe", "pipe"] });
@@ -32,7 +41,7 @@ function run(script, { stdin = "", args = [], env }) {
     let stderr = "";
     child.stdout.on("data", (chunk) => { stdout += chunk; });
     child.stderr.on("data", (chunk) => { stderr += chunk; });
-    child.on("close", (code) => resolve({ code, stdout, stderr, ms: Date.now() - started }));
+    child.on("close", (code) => {const finish=()=>resolve({ code, stdout, stderr, ms: Date.now()-started });if(server)server.close(finish);else finish();});
     child.stdin.end(stdin);
   });
 }
@@ -69,27 +78,7 @@ const ledger = (dataDir) => fs.readFileSync(dataPaths(dataDir).ledger, "utf8").t
 
 // ---- hooks -----------------------------------------------------------------
 
-test("pre hook with no key: prints one JSON object with the local default, once-only notice, exit 0", async (t) => {
-  const dataDir = tmpDataDir(t);
-  const env = baseEnv(dataDir, { OPENAI_API_KEY: FAKE_KEY });
-  const first = await run(PRE, { stdin: JSON.stringify(hookInput()), env });
-  assert.equal(first.code, 0);
-  assert.equal(first.stderr, "");
-  const output = JSON.parse(first.stdout);
-  assert.equal(output.hookSpecificOutput.hookEventName, "PreToolUse");
-  assert.equal(output.hookSpecificOutput.permissionDecision, "allow");
-  assert.deepEqual(output.hookSpecificOutput.updatedInput, { ...hookInput().tool_input, model: "gpt-6.1-sol", reasoning_effort: "medium" });
-  assert.match(output.systemMessage, /not connected/);
-  assert.match(output.systemMessage, /gearshift\.mjs" connect/);
-  assert.ok(first.ms < 3000, `took ${first.ms} ms`);
-
-  const second = await run(PRE, { stdin: JSON.stringify(hookInput()), env });
-  assert.equal(JSON.parse(second.stdout).systemMessage, undefined);
-  const rows = ledger(dataDir);
-  assert.equal(rows.length, 2);
-  assert.deepEqual([rows[0].event, rows[0].status, rows[0].source, rows[0].reason, rows[0].api_called], ["pre_tool_use", "routed", "fallback", "no_credential", false]);
-  assert.ok(!fs.readFileSync(dataPaths(dataDir).ledger, "utf8").includes("parseResponse"), "no task text in the ledger");
-});
+test("pre hook without credentials leaves input unchanged",async(t)=>{const dataDir=tmpDataDir(t);const result=await run(PRE,{stdin:JSON.stringify(hookInput()),env:baseEnv(dataDir)});assert.deepEqual([result.code,result.stdout,result.stderr],[0,"",""]);assert.equal(ledger(dataDir)[0].reason,"no_credential");});
 
 test("pre hook stays silent and exits 0 on every input it should not act on", async (t) => {
   const dataDir = tmpDataDir(t);
@@ -119,6 +108,7 @@ test("pre hook calls the Decisions endpoint with the saved key and applies the a
   const result = await run(PRE, { stdin: JSON.stringify(input), env });
   assert.equal(result.code, 0);
   assert.equal(result.stderr, "");
+  assert.ok(result.stdout,JSON.stringify(ledger(dataDir)));
   const output = JSON.parse(result.stdout);
   assert.equal(output.hookSpecificOutput.updatedInput.model, "gpt-6-luna");
   assert.equal(output.hookSpecificOutput.updatedInput.reasoning_effort, "low");
@@ -135,11 +125,7 @@ test("pre hook calls the Decisions endpoint with the saved key and applies the a
   assert.equal(server.requests.length, 1, "second identical spawn is served from the saved cache");
   assert.equal(ledger(dataDir)[1].source, "cache");
 
-  const probes = fs.readdirSync(dataPaths(dataDir).probeDir);
-  assert.equal(probes.length, 2);
-  const probe = fs.readFileSync(path.join(dataPaths(dataDir).probeDir, probes[0]), "utf8");
-  assert.ok(!probe.includes("parseResponse"), "the probe holds no task text");
-  assert.equal(JSON.parse(probe).tool_input_was_string, true);
+
 });
 
 test("pre hook falls back when the API errors and never prints the response body", async (t) => {
@@ -157,7 +143,7 @@ test("pre hook honors an invalid config by using defaults and saying so in the l
   const dataDir = tmpDataDir(t);
   fs.writeFileSync(dataPaths(dataDir).config, JSON.stringify({ mode: "bogus" }));
   const result = await run(PRE, { stdin: JSON.stringify(hookInput()), env: baseEnv(dataDir) });
-  assert.equal(JSON.parse(result.stdout).hookSpecificOutput.updatedInput.model, "gpt-6.1-sol");
+  assert.equal(result.stdout, "");
   assert.equal(ledger(dataDir)[0].config_invalid, true);
 });
 
@@ -198,13 +184,13 @@ test("cli: route offline uses the local default and never spawns or calls out", 
   const dataDir = tmpDataDir(t);
   const env = baseEnv(dataDir, { OPENAI_API_KEY: FAKE_KEY });
   const offline = JSON.parse((await cli(["route", "--offline", "--json", "--message", "Rename a variable."], env)).stdout);
-  assert.deepEqual([offline.status, offline.source, offline.reason, offline.preset, offline.api_called], ["routed", "fallback", "no_credential", "sol_balanced", false]);
+  assert.deepEqual([offline.status, offline.source, offline.reason, offline.preset, offline.api_called], ["passthrough", "none", "no_credential", null, false]);
   const pinned = JSON.parse((await cli(["route", "--json", "--message", "x", "--model", "gpt-6-astra", "--reasoning-effort", "high"], env)).stdout);
   assert.deepEqual([pinned.status, pinned.reason], ["passthrough", "pinned"]);
   const full = JSON.parse((await cli(["route", "--json", "--message", "x", "--fork-turns", "all"], env)).stdout);
   assert.equal(full.reason, "skipped_full_history_fork");
   const text = await cli(["route", "--offline", "--message", "Rename a variable."], env);
-  assert.match(text.stdout, /Would route to sol_balanced/);
+  assert.match(text.stdout, /Would leave the spawn unchanged/);
   assert.match(text.stdout, /Nothing was spawned\./);
   assert.equal((await cli(["route"], env)).code, 2);
   const rows = ledger(dataDir);
@@ -226,7 +212,7 @@ test("cli: connect verifies with one call, saves the key, and never prints it", 
   assert.equal(server.requests.length, 1);
   assert.equal(server.requests[0].authorization, `Bearer ${FAKE_KEY}`);
   const saved = JSON.parse(fs.readFileSync(dataPaths(dataDir).credentials, "utf8"));
-  assert.deepEqual([saved.key, saved.label], [FAKE_KEY, "test project"]);
+  assert.equal(saved.schema_version,2);assert.equal(saved.label,"test project");assert.ok(!JSON.stringify(saved).includes(FAKE_KEY));
   assert.ok(fs.existsSync(dataPaths(dataDir).config), "a default config is written");
 
   const status = await cli(["status"], env);
@@ -236,7 +222,7 @@ test("cli: connect verifies with one call, saves the key, and never prints it", 
   const routed = JSON.parse((await cli(["route", "--json", "--message", "Redesign the sync engine."], env)).stdout);
   assert.deepEqual([routed.source, routed.preset, routed.model, routed.reasoning_effort, routed.api_called, routed.input_tokens], ["decisions", "sol_deep", "gpt-6.1-sol", "xhigh", true, 321]);
   const totals = JSON.parse((await cli(["status", "--json"], env)).stdout);
-  assert.deepEqual([totals.connected, totals.connection.label, totals.summary.decisions_calls, totals.summary.input_tokens, totals.summary.spawns_seen], [true, "test project", 1, 321, 0]);
+  assert.deepEqual([totals.connected, totals.connection.label, totals.summary.decisions_calls, totals.summary.input_tokens, totals.summary.spawns_seen], [true, "test project", 2, 363, 0]);
   assert.ok(!JSON.stringify(totals).includes(FAKE_KEY));
 
   const gone = await cli(["disconnect"], env);
@@ -264,17 +250,7 @@ test("cli: connect saves nothing when the key is rejected, malformed, or missing
   assert.equal(fs.existsSync(dataPaths(dataDir).credentials), false);
 });
 
-test("cli: connect keeps a working key but warns when the answer has an unexpected shape", async (t) => {
-  const dataDir = tmpDataDir(t);
-  const server = await fakeServer(t, () => ({ status: 200, json: { result: { verdict: SENTINEL } } }));
-  const env = baseEnv(dataDir, { MY_KEY: FAKE_KEY, GEARSHIFT_DECISIONS_ENDPOINT: server.url, GEARSHIFT_CODEX_BIN: "gearshift-no-such-codex-binary" });
-  const result = await cli(["connect", "--from-env", "MY_KEY"], env);
-  assert.equal(result.code, 0);
-  assert.match(result.stdout, /did not have the shape Gearshift expects/);
-  assert.match(result.stdout, /"verdict": "string"/);
-  assert.ok(!result.stdout.includes(SENTINEL));
-  assert.ok(fs.existsSync(dataPaths(dataDir).credentials));
-});
+test("cli refuses malformed connection answers without saving",async(t)=>{const dataDir=tmpDataDir(t);const server=await fakeServer(t,()=>({status:200,json:{result:{verdict:SENTINEL}}}));const env=baseEnv(dataDir,{MY_KEY:FAKE_KEY,GEARSHIFT_DECISIONS_ENDPOINT:server.url});const result=await cli(["connect","--from-env","MY_KEY"],env);assert.equal(result.code,1);assert.match(result.stderr,/invalid connection answer/);assert.ok(!fs.existsSync(dataPaths(dataDir).credentials));});
 
 test("cli: connect --stdin and --no-verify", async (t) => {
   const dataDir = tmpDataDir(t);
@@ -282,7 +258,7 @@ test("cli: connect --stdin and --no-verify", async (t) => {
   const result = await run(CLI, { args: ["connect", "--stdin", "--no-verify"], stdin: `${FAKE_KEY}\n`, env });
   assert.equal(result.code, 0, result.stderr);
   assert.ok(!result.stdout.includes("Verified"));
-  assert.equal(JSON.parse(fs.readFileSync(dataPaths(dataDir).credentials, "utf8")).key, FAKE_KEY);
+  assert.equal(loadCredential({dataDir,env:{}}).key,FAKE_KEY);
 });
 
 test("cli: config print, init, set, and validation", async (t) => {
@@ -357,41 +333,7 @@ test("session start hook adds the fixed delegation note, unless turned off", asy
   assert.equal((await run(START, { stdin, env })).stdout, "");
 });
 
-test("prompt hook stores nothing by default; when enabled the routing hook sends the request", async (t) => {
-  const dataDir = tmpDataDir(t);
-  const server = await fakeServer(t, () => ({ status: 200, json: answer("sol_deep", 0.9) }));
-  const env = baseEnv(dataDir, { GEARSHIFT_OPENAI_API_KEY: FAKE_KEY, GEARSHIFT_DECISIONS_ENDPOINT: server.url });
-  const prompt = JSON.stringify({ hook_event_name: "UserPromptSubmit", session_id: "sess-1", prompt: `Rework the billing module. ${FAKE_KEY}` });
-
-  const off = await run(PROMPT, { stdin: prompt, env });
-  assert.deepEqual([off.code, off.stdout, off.stderr], [0, "", ""]);
-  assert.equal(fs.existsSync(dataPaths(dataDir).turnsDir), false, "nothing is stored unless the user opts in");
-  await run(PRE, { stdin: JSON.stringify(hookInput()), env });
-  assert.ok(!JSON.stringify(server.requests[0].body).includes("billing module"));
-
-  fs.writeFileSync(dataPaths(dataDir).config, JSON.stringify({ include_user_prompt: true }));
-  const on = await run(PROMPT, { stdin: prompt, env });
-  assert.deepEqual([on.code, on.stdout, on.stderr], [0, "", ""]);
-  assert.equal(fs.readdirSync(dataPaths(dataDir).turnsDir).length, 1);
-  await run(PRE, { stdin: JSON.stringify(hookInput({ task_name: "rework_billing_module" })), env });
-  const sent = server.requests[1].body.input;
-  assert.ok(sent.includes("user_request:\nRework the billing module."));
-  assert.ok(!sent.includes(FAKE_KEY));
-  const rows = ledger(dataDir);
-  assert.equal(rows[1].user_request_sent, true);
-  assert.ok(!fs.readFileSync(dataPaths(dataDir).ledger, "utf8").includes("billing module"));
-
-  await run(PRE, { stdin: JSON.stringify(hookInput({ task_name: "other" }, { session_id: "another-session" })), env });
-  assert.ok(!server.requests[2].body.input.includes("user_request:"), "a prompt is only used for its own session");
-
-  for (const bad of ["", "nope", JSON.stringify({ session_id: "x" })]) {
-    const result = await run(PROMPT, { stdin: bad, env });
-    assert.deepEqual([result.code, result.stdout, result.stderr], [0, "", ""]);
-  }
-  const cleared = await cli(["config", "set", "include_user_prompt", "false"], env);
-  assert.equal(cleared.code, 0);
-  assert.equal(fs.existsSync(dataPaths(dataDir).turnsDir), false, "turning the setting off deletes saved prompts");
-});
+test("latest user prompt remains off in helper routing",async(t)=>{const dataDir=tmpDataDir(t);fs.writeFileSync(dataPaths(dataDir).config,JSON.stringify({include_user_prompt:true}));const server=await fakeServer(t,()=>({status:200,json:answer()}));const env=baseEnv(dataDir,{GEARSHIFT_OPENAI_API_KEY:FAKE_KEY,GEARSHIFT_DECISIONS_ENDPOINT:server.url});await run(PRE,{stdin:JSON.stringify(hookInput()),env});assert.ok(!server.requests[0].body.input.includes("user_request:"));assert.equal(ledger(dataDir)[0].user_request_sent,false);});
 
 test("cli: route by task name, with an optional request that respects the setting", async (t) => {
   const dataDir = tmpDataDir(t);

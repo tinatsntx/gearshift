@@ -1,10 +1,15 @@
-# Gearshift
+# Gearshift 0.3 private preview
 
-A Codex plugin that picks the model and reasoning effort for every subagent, using the OpenAI Decisions API on each user's own API key.
+Gearshift recommends a model and **reasoning effort** for eligible new local Codex subagents using each user's own Decisions API key.
 
-- The plugin, its documentation, and its tests are in [plugins/gearshift](plugins/gearshift/README.md).
-- This repository is also a local Codex marketplace: [.agents/plugins/marketplace.json](.agents/plugins/marketplace.json) lists the plugin so `codex plugin marketplace add <this folder>` can find it.
+This source contains a hook-free public plugin with an MCP Apps control panel, a GitHub OAuth MCP service, and a Windows desktop companion. API keys and task content stay local; the service receives operational metadata and accepts only settings, a fixed connection test, and disconnect commands.
 
-## History
+**Automatic routing is blocked in the tested installation.** Three real Decisions calls succeeded and a cached repeat made no additional request. Native Codex 0.160.1 did not deliver Gearshift routing events or apply a selected model. The child ran on its default settings. Temporary test settings were restored. This is a development checkpoint, not an accepted automatic-routing release.
 
-The project began as `codex-decisions-router` 0.1.0, a Python package built in the cloud that recommended settings through an MCP tool and never ran live. That source is preserved in this repository's first commit (`044e536`). The requirements and research written for it are kept in [plugins/gearshift/docs](plugins/gearshift/docs).
+- [Live evidence](docs/live-proof.json) and [release gates](docs/RELEASE.md)
+- [Windows setup](docs/INSTALL.md) and [privacy disclosure](docs/PRIVACY.md)
+- [Host compatibility](docs/HOST-COMPATIBILITY.md)
+
+Install dependencies with `npm ci`, verify with `npm test`, and build the separate Windows packages with `npm run build`. Render uses `npm run build -- --service-only`. Credentials, local test output and generated packages are ignored and excluded from public artifacts.
+
+The existing local marketplace identity is `gearshift@gearshift-local`. Public MCP registration, GitHub OAuth registration, hosted deployment and actual ChatGPT/Codex panel acceptance remain release gates. Public submission and repository publication are subsequent actions. Licensed under Apache 2.0.

@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: gearshift-mcp
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm ci && npm run build -- --service-only
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: 22.17.0
+      - key: PUBLIC_BASE_URL
+        value: https://gearshift-mcp.onrender.com
+      - key: DATABASE_URL
+        fromDatabase:
+          name: gearshift-preview-db
+          property: connectionString
+      - key: GITHUB_CLIENT_ID
+        sync: false
+      - key: GITHUB_CLIENT_SECRET
+        sync: false
+databases:
+  - name: gearshift-preview-db
+    plan: free
+    region: oregon
+    databaseName: gearshift
+    user: gearshift
+    ipAllowList: []

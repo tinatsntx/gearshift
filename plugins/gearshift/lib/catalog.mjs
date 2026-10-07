@@ -12,6 +12,30 @@ import { isPlainObject, readJsonFile, writeFileAtomic } from "./fsutil.mjs";
 
 export const CATALOG_REASONS = ["codex_not_found", "codex_failed", "catalog_invalid"];
 
+// Catalog provenance must match the running host. No inferred or PATH-based
+// equivalence between a desktop host and another installed CLI is accepted.
+export function catalogReadiness(catalog, { hostIdentity, now = Date.now, maxAgeMs = 604800000 } = {}) {
+  if (!catalog || !Array.isArray(catalog.models)) return "catalog_missing";
+  const age = now() - Date.parse(catalog.fetched_at);
+  if (!Number.isFinite(age) || age < -60000 || age > maxAgeMs) return "catalog_stale";
+  if (!hostIdentity || !catalog.host_identity || catalog.host_identity !== hostIdentity) return "catalog_mismatch";
+  return null;
+}
+
+export function transcriptHostIdentity(file, fs = nodeFs) {
+  if (typeof file !== "string") return null;
+  let fd;
+  try {
+    fd = fs.openSync(file, "r");
+    const buffer = Buffer.alloc(65536);
+    const count = fs.readSync(fd, buffer, 0, buffer.length, 0);
+    const record = JSON.parse(buffer.subarray(0, count).toString("utf8").split("\n")[0]);
+    const meta = record.type === "session_meta" ? record.payload : null;
+    return meta?.cli_version && meta?.originator ? `${meta.originator}:${meta.cli_version}` : null;
+  } catch { return null; }
+  finally { if (fd !== undefined) fs.closeSync(fd); }
+}
+
 export class CatalogError extends Error {
   constructor(reason) {
     super(CATALOG_REASONS.includes(reason) ? reason : "codex_failed");

@@ -36,10 +36,10 @@ test("presets are dropped when the model is absent, hidden, lacks the effort, or
   assert.deepEqual(ids(eligiblePresets(DEFAULT_PRESETS, catalog, { allowedModels: ["gpt-6-luna"] }).candidates), ["luna_fast", "luna_careful"]);
 });
 
-test("with no catalog every allowed preset is kept and the gap is reported", () => {
+test("missing catalog offers no preset", () => {
   const result = eligiblePresets(DEFAULT_PRESETS, null);
   assert.equal(result.catalogMissing, true);
-  assert.equal(result.candidates.length, DEFAULT_PRESETS.length);
+  assert.equal(result.candidates.length, 0);
 });
 
 test("fallback follows the configured order and skips missing presets", () => {
@@ -51,12 +51,12 @@ test("fallback follows the configured order and skips missing presets", () => {
   assert.equal(presetById(DEFAULT_PRESETS, "astra_deep").model, "gpt-6-astra");
 });
 
-test("a spawn is pinned only when both model and effort are set", () => {
+test("either model or effort pins a spawn", () => {
   assert.equal(isPinned({ model: "gpt-6-astra", reasoning_effort: "medium" }), true);
-  assert.equal(isPinned({ model: "gpt-6-astra" }), false);
-  assert.equal(isPinned({ reasoning_effort: "high" }), false);
-  assert.equal(isPinned({ model: "", reasoning_effort: "high" }), false);
-  assert.equal(isPinned({ model: 3, reasoning_effort: "high" }), false);
+  assert.equal(isPinned({ model: "gpt-6-astra" }), true);
+  assert.equal(isPinned({ reasoning_effort: "high" }), true);
+  assert.equal(isPinned({ model: "", reasoning_effort: "high" }), true);
+  assert.equal(isPinned({ model: 3, reasoning_effort: "high" }), true);
   assert.equal(isPinned(null), false);
 });
 
@@ -81,10 +81,10 @@ test("updated input keeps every original argument and only adds the pair", () =>
   const updated = buildUpdatedInput(original, DEFAULT_PRESETS[0]);
   assert.deepEqual(updated, { ...original, model: "gpt-6-luna", reasoning_effort: "low" });
   assert.equal(Object.hasOwn(original, "model"), false, "input is not mutated");
-  assert.equal(buildUpdatedInput({ message: "m" }, DEFAULT_PRESETS[0], { convert: true }).fork_turns, "none");
-  assert.equal(buildUpdatedInput({ message: "m", fork_turns: "all" }, DEFAULT_PRESETS[0], { convert: true, forkTurnsValue: "2" }).fork_turns, "2");
+  assert.equal(buildUpdatedInput({ message: "m" }, DEFAULT_PRESETS[0], { convert: true }).fork_turns, undefined);
+  assert.equal(buildUpdatedInput({ message: "m", fork_turns: "all" }, DEFAULT_PRESETS[0], { convert: true, forkTurnsValue: "2" }).fork_turns, "all");
   const legacy = buildUpdatedInput({ message: "m", fork_context: true }, DEFAULT_PRESETS[0], { convert: true });
-  assert.equal(legacy.fork_context, false);
+  assert.equal(legacy.fork_context, true);
   assert.equal(Object.hasOwn(legacy, "fork_turns"), false);
 });
 

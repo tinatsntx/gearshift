@@ -1,5 +1,5 @@
 {
-  "description": "Gearshift chooses the model and reasoning effort for subagent spawns using the OpenAI Decisions API under the user's own API key. SessionStart adds a fixed note telling the agent how to delegate so routing applies. PreToolUse is synchronous and may add model and reasoning_effort to spawn_agent arguments; it changes nothing else unless convert_full_forks is enabled. PostToolUse records the spawn. UserPromptSubmit does nothing unless the user turns on include_user_prompt. Every hook exits 0 on any failure and none can block a prompt or a spawn.",
+  "description": "Gearshift Desktop uses an authenticated local helper to route eligible new local subagents. Either explicit setting and full history are preserved. The helper uses the user's own OpenAI API key. Missing helper, credentials or a fresh matching host catalog leaves the spawn unchanged. PostToolUse records requested settings separately from verified child runtime settings. No latest user prompt is collected.",
   "hooks": {
     "SessionStart": [
       {
@@ -10,20 +10,6 @@
             "command": "node \"${PLUGIN_ROOT}/hooks/session_start.mjs\"",
             "timeout": 5,
             "statusMessage": "Loading Gearshift"
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "matcher": ".*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${PLUGIN_ROOT}/hooks/user_prompt_submit.mjs\"",
-            "async": true,
-            "timeout": 10,
-            "statusMessage": "Gearshift"
           }
         ]
       }

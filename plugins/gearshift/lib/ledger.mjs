@@ -63,12 +63,13 @@ export function readLedger({ dataDir, fs = nodeFs, limit = 10 } = {}) {
 export function summarizeLedger(entries) {
   const summary = {
     spawns_seen: 0, routed: 0, passthrough: 0, decisions_calls: 0, cache_hits: 0, fallbacks: 0,
-    pinned: 0, skipped_full_fork: 0, input_tokens: 0, est_cost_usd: 0,
+    pinned: 0, skipped_full_fork: 0, input_tokens: 0, est_cost_usd: 0, unknown_usage_calls: 0,
   };
   for (const entry of entries) {
-    if (entry.event !== "pre_tool_use" && entry.event !== "cli_route") continue;
+    if (!["pre_tool_use", "cli_route", "connection_test"].includes(entry.event)) continue;
     // Token use counts for both real spawns and CLI tests; spawn counts do not.
     if (entry.api_called === true) summary.decisions_calls += 1;
+    if (entry.api_called === true && !Number.isInteger(entry.input_tokens)) summary.unknown_usage_calls += 1;
     if (Number.isInteger(entry.input_tokens)) summary.input_tokens += entry.input_tokens;
     if (entry.event !== "pre_tool_use") continue;
     summary.spawns_seen += 1;

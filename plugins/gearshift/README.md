@@ -1,3 +1,5 @@
+> Historical 0.2 implementation notes. For the 0.3 companion architecture and current failed native acceptance, see the repository README and docs/RELEASE.md. Do not treat the routing claims below as verified 0.3 behavior.
+
 # Gearshift
 
 Gearshift is a Codex plugin that picks the model and reasoning effort for every subagent Codex starts. Small jobs go to a fast model, hard ones get deep reasoning, and you stop choosing settings by hand.

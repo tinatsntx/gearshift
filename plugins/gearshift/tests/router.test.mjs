@@ -5,7 +5,7 @@ import { ABSTAIN } from "../lib/decisions.mjs";
 import { makeEntry } from "../lib/ledger.mjs";
 import { DEFAULT_PRESETS } from "../lib/presets.mjs";
 import { REASONS, routeSpawn } from "../lib/router.mjs";
-import { ENCRYPTED_MESSAGE, FAKE_KEY, SENTINEL, answer, config, deps, fakeClock, fakeTransport, hookInput, refusal } from "./helpers.mjs";
+import { ENCRYPTED_MESSAGE, FAKE_KEY, SENTINEL, answer, config, deps, fakeClock, fakeTransport, hookInput, refusal, catalogFixture } from "./helpers.mjs";
 
 const TASK = "Find every caller of parseResponse and list file and line.";
 
@@ -155,13 +155,9 @@ test("a spawn with no fork field at all is a full-history fork", async () => {
   assert.equal(result.entry.reason, "skipped_full_history_fork");
 });
 
-test("convert_full_forks rewrites a full fork to a bounded one", async () => {
-  const input = hookInput();
-  delete input.tool_input.fork_turns;
-  const result = await routeSpawn(input, deps({ config: config({ convert_full_forks: true }) }));
-  assert.equal(result.output.hookSpecificOutput.updatedInput.fork_turns, "none");
-  assert.equal(result.output.hookSpecificOutput.updatedInput.model, "gpt-6.1-sol");
-  assert.equal(result.entry.converted_fork, true);
+test("full history stays intact even with legacy conversion enabled", async () => {
+  const result=await routeSpawn(hookInput({fork_turns:"all"}),deps({config:config({convert_full_forks:true})}));
+  assert.equal(result.output,null); assert.equal(result.entry.reason,"skipped_full_history_fork");
 });
 
 test("legacy fork_context false is routed", async () => {
@@ -187,20 +183,9 @@ test("the Agent alias and a namespaced tool name are recognized", async () => {
   assert.equal((await routeSpawn(hookInput({}, { tool_name: "respawn_agent" }), deps())).entry, null);
 });
 
-test("without a key the local default is used, labeled as a fallback, and no call is made", async () => {
-  const transport = fakeTransport();
-  const seen = new Set();
-  const firstNotice = (kind) => (seen.has(kind) ? false : (seen.add(kind), true));
-  const first = await routeSpawn(hookInput(), deps({ transport, credential: null, firstNotice, cliCommand: "gearshift" }));
-  assert.equal(first.output.hookSpecificOutput.updatedInput.model, "gpt-6.1-sol");
-  assert.equal(first.output.hookSpecificOutput.updatedInput.reasoning_effort, "medium");
-  assert.match(first.output.systemMessage, /not connected/);
-  assert.match(first.output.systemMessage, /gearshift connect/);
-  assert.deepEqual([first.entry.source, first.entry.reason, first.entry.api_called], ["fallback", "no_credential", false]);
-  assert.equal(first.entry.credential_fp, null);
-  const second = await routeSpawn(hookInput(), deps({ transport, credential: null, firstNotice }));
-  assert.equal(second.output.systemMessage, undefined, "the notice shows once per session");
-  assert.equal(transport.calls.length, 0);
+test("without a key the spawn stays unchanged and no call is made", async () => {
+ const transport=fakeTransport();const result=await routeSpawn(hookInput(),deps({credential:null,transport,firstNotice:()=>false}));
+ assert.equal(result.output,null);assert.equal(result.entry.reason,"no_credential");assert.equal(result.entry.source,"none");assert.equal(transport.calls.length,0);
 });
 
 test("exactly one eligible preset skips the API", async () => {
@@ -216,12 +201,9 @@ test("no eligible preset leaves the spawn untouched", async () => {
   assert.equal(result.entry.reason, "no_eligible_candidate");
 });
 
-test("a missing catalog is flagged and all presets are offered", async () => {
-  const transport = fakeTransport(answer("astra_deep"));
-  const result = await routeSpawn(hookInput(), deps({ transport, catalog: null }));
-  assert.equal(result.entry.catalog_missing, true);
-  assert.equal(result.entry.preset, "astra_deep");
-  assert.equal(JSON.parse(transport.calls[0].body).questions[0].choices.length, DEFAULT_PRESETS.length + 1);
+test("missing catalog leaves the spawn unchanged",async()=>{
+ const transport=fakeTransport();const result=await routeSpawn(hookInput(),deps({catalog:null,transport}));
+ assert.equal(result.output,null);assert.equal(result.entry.reason,"catalog_missing");assert.equal(transport.calls.length,0);
 });
 
 test("with nothing to go on, the local default is used without a call", async () => {
@@ -240,7 +222,7 @@ test("the cache serves repeats, expires, and is keyed by task text, task name, c
   const now = fakeClock();
   const cache = { entries: {} };
   const transport = fakeTransport(answer("luna_careful", 0.8));
-  const shared = { transport, cache, now };
+  const shared = { transport, cache, now, catalog: { ...catalogFixture(), fetched_at:new Date(now()).toISOString() } };
   const first = await routeSpawn(hookInput(), deps(shared));
   assert.equal(first.entry.source, "decisions");
   const second = await routeSpawn(hookInput(), deps(shared));

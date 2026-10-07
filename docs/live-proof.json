@@ -1,0 +1,68 @@
+{
+  "version": "0.3.0",
+  "max_requests": 6,
+  "requests": 3,
+  "stages": [
+    {
+      "stage": "connection",
+      "reason": "connected",
+      "latency_ms": 1171,
+      "input_tokens": 121
+    },
+    {
+      "stage": "lookup_named_export",
+      "reason": "selected",
+      "source": "decisions",
+      "recommended_model": "gpt-6-luna",
+      "recommended_effort": "low",
+      "input_tokens": 390,
+      "latency_ms": 960,
+      "api_called": true
+    },
+    {
+      "stage": "audit_concurrent_oauth_and_pairing",
+      "reason": "selected",
+      "source": "decisions",
+      "recommended_model": "gpt-6.1-sol",
+      "recommended_effort": "xhigh",
+      "input_tokens": 409,
+      "latency_ms": 311,
+      "api_called": true
+    },
+    {
+      "stage": "audit_concurrent_oauth_and_pairing",
+      "reason": "cache_hit",
+      "source": "cache",
+      "recommended_model": "gpt-6.1-sol",
+      "recommended_effort": "xhigh",
+      "input_tokens": null,
+      "latency_ms": 0,
+      "api_called": false
+    }
+  ],
+  "native_verified": false,
+  "host_version": "0.160.1",
+  "limitations": [
+    "Synthetic calls establish connectivity and selection only; not quality or savings.",
+    "Native host application and effective child settings require separate correlated evidence."
+  ],
+  "native_status": "unsupported",
+  "native_evidence": {
+    "package_version": "0.3.0",
+    "host_identity": "Codex Desktop:0.160.1",
+    "parent_model": "gpt-6.1-sol",
+    "parent_effort": "high",
+    "spawn_model_unset": true,
+    "spawn_effort_unset": true,
+    "fork_turns": "none",
+    "child_thread_id": "01a113df-c25d-7df0-9c3b-23a492c5a98f",
+    "effective_model": "gpt-5.6-terra",
+    "effective_effort": "high",
+    "api_result": null,
+    "hook_updated_input": null,
+    "hook_events_received": 0,
+    "launch_error": "hook exited with code 1",
+    "result": "Failed to demonstrate hook-applied routing; tested installation unsupported."
+  },
+  "temporary_settings_restored": true
+}

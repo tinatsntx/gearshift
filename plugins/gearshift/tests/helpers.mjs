@@ -77,7 +77,7 @@ export function credential() {
 }
 
 export function catalogFixture() {
-  return JSON.parse(fs.readFileSync(path.join(ROOT, "fixtures", "catalog.mock.json"), "utf8"));
+  return { ...JSON.parse(fs.readFileSync(path.join(ROOT, "fixtures", "catalog.mock.json"), "utf8")), fetched_at: new Date().toISOString(), host_identity: "test:1" };
 }
 
 export function hookInput(toolInput = {}, overrides = {}) {
@@ -98,8 +98,9 @@ export function hookInput(toolInput = {}, overrides = {}) {
 
 export function deps(overrides = {}) {
   return {
+    hostIdentity: "test:1",
     config: config(),
-    catalog: catalogFixture(),
+    catalog: { ...catalogFixture(), fetched_at: new Date((overrides.now??Date.now)()).toISOString() },
     credential: credential(),
     cache: { entries: {} },
     transport: fakeTransport(),

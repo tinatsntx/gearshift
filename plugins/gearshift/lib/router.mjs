@@ -11,6 +11,7 @@
 // prompt only when the user has turned include_user_prompt on.
 
 import { cacheKey, getCached, putCached } from "./cache.mjs";
+import { catalogReadiness } from "./catalog.mjs";
 import {
   ABSTAIN, ENDPOINT, PROMPT_VERSION, ProviderError, buildInputText, buildRequest, decide,
   looksOpaque, parseResponse, redactSecrets, truncatePrompt, usageFrom,
@@ -55,7 +56,7 @@ export async function routeSpawn(hookInput, deps) {
   const {
     config, catalog = null, credential = null, cache = null, transport = null,
     endpoint = ENDPOINT, now = Date.now, firstNotice = () => false, cliCommand = "gearshift",
-    userRequest = null,
+    userRequest = null, hostIdentity = null,
   } = deps;
   const hook = normalizeHookInput(hookInput);
   if (!isSpawnTool(hook.toolName)) {
@@ -109,6 +110,11 @@ export async function routeSpawn(hookInput, deps) {
       preset: preset?.id ?? null,
       model: preset?.model ?? null,
       reasoning_effort: preset?.effort ?? null,
+      recommended_model: preset?.model ?? null,
+      recommended_effort: preset?.effort ?? null,
+      effective_model: null,
+      effective_effort: null,
+      effective_verified: false,
       confidence,
       latency_ms: latencyMs,
       api_called: apiCalled,
@@ -128,8 +134,11 @@ export async function routeSpawn(hookInput, deps) {
     if (config.mode === "off") return finish("passthrough", "none", "mode_off");
     if (isPinned(toolInput)) return finish("passthrough", "none", "pinned");
     if (mode === "unknown") return finish("passthrough", "none", "unknown_fork_mode");
-    const convert = mode === "full" && config.convert_full_forks === true;
-    if (mode === "full" && !convert) return finish("passthrough", "none", "skipped_full_history_fork");
+    const convert = false;
+    if (mode === "full") return finish("passthrough", "none", "skipped_full_history_fork");
+    const readiness = catalogReadiness(catalog, { hostIdentity, now, maxAgeMs: config.catalog_max_age_hours * 3600 * 1000 });
+    if (readiness) return finish("passthrough", "none", readiness);
+    if (!credential) return finish("passthrough", "none", "no_credential");
 
     const { candidates, catalogMissing } = eligiblePresets(config.presets, catalog, { allowedModels: config.allowed_models });
     const details = catalogMissing ? { catalog_missing: true } : {};
@@ -139,8 +148,6 @@ export async function routeSpawn(hookInput, deps) {
     }
     const local = pickFallback(candidates, config.fallback_order);
     const fallback = (reason, extra = {}) => finish("routed", "fallback", reason, { preset: local, convert, details, ...extra });
-
-    if (!credential) return fallback("no_credential");
 
     const rawMessage = extractPromptText(toolInput).trim();
     const readable = rawMessage !== "" && !looksOpaque(rawMessage);
@@ -155,7 +162,7 @@ export async function routeSpawn(hookInput, deps) {
     if (!taskName && clipped.text === "" && request === null) return fallback("no_task_text");
 
     const inputText = buildInputText({
-      taskName,
+      taskName: redactSecrets(taskName),
       parentModel: hook.parentModel,
       optimizationGoal: config.optimization_goal,
       promptText: clipped.text,
@@ -164,6 +171,9 @@ export async function routeSpawn(hookInput, deps) {
     const key = cacheKey({
       inputText,
       candidateIds: candidates.map((preset) => preset.id),
+      candidates,
+      policy: { send_prompt_text: config.send_prompt_text, include_user_prompt: config.include_user_prompt, prompt_max_chars: config.prompt_max_chars, min_confidence: config.min_confidence, strict_probabilities: config.strict_probabilities },
+      hostCapabilities: catalog,
       promptVersion: PROMPT_VERSION,
       credentialFingerprint: credential.fingerprint,
       optimizationGoal: config.optimization_goal,

@@ -189,13 +189,17 @@ async function commandConnect(flags, dataDir) {
       const usage = usageFrom(response);
       const tokens = usage.input_tokens === null ? "an unreported number of" : usage.input_tokens;
       const cost = usage.input_tokens === null ? "" : ` (about ${money(estimateCostUsd(usage.input_tokens))})`;
-      out(`Verified: 1 Decisions call, ${tokens} input tokens${cost}.`);
+      appendLedger({dataDir,entry:{event:"connection_test",ts:new Date().toISOString(),api_called:true,input_tokens:usage.input_tokens}});
       try {
-        parseChoiceAnswer(response, { name: VERIFY_QUESTION, allowed: VERIFY_CHOICES });
+        const answer=parseChoiceAnswer(response, { name: VERIFY_QUESTION, allowed: VERIFY_CHOICES });
+        if(answer.kind!=="choice" || answer.choice!=="ok") throw Error("invalid_response");
+        out(`Verified: 1 Decisions call, ${tokens} input tokens${cost}.`);
       } catch {
-        out("Warning: the key works, but the answer did not have the shape Gearshift expects.");
+        err("Decisions returned an invalid connection answer. Nothing was saved.");
+        return 1;
+        /*
         out("Routing will fall back to local defaults until this is fixed. Response shape (no values):");
-        out(JSON.stringify(describeShape(response), null, 2));
+        out(JSON.stringify(describeShape(response), null, 2)); */
       }
     }
     const saved = saveCredential({ dataDir, key, label: typeof flags.label === "string" ? flags.label : null });
@@ -264,7 +268,7 @@ function commandStatus(flags, dataDir) {
     ? `Model list   ${catalog.models.filter((model) => model.visibility === "list").length} models, refreshed ${age(ageMs)}${stale ? " (stale; run: gearshift catalog)" : ""}`
     : "Model list   none yet; run: gearshift catalog");
   out(`Totals       ${summary.spawns_seen} spawns seen, ${summary.routed} routed, ${summary.passthrough} left unchanged`);
-  out(`             ${summary.decisions_calls} Decisions calls, ${summary.input_tokens} input tokens (about ${money(summary.est_cost_usd)})`);
+  out(`             ${summary.decisions_calls} Decisions calls, ${summary.input_tokens} input tokens (about ${money(summary.est_cost_usd??0)})`);
   if (summary.skipped_full_fork > 0) {
     out(`             ${summary.skipped_full_fork} spawns were full-history forks, which Codex does not let a plugin re-model`);
   }
@@ -336,6 +340,7 @@ async function commandRoute(flags, dataDir) {
   const { entry, decision, cacheDirty } = await routeSpawn(raw, {
     config: { ...config, mode: "auto" },
     catalog,
+    hostIdentity: catalog?.host_identity,
     credential,
     cache,
     transport: createHttpsTransport(),
