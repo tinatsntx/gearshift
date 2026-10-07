@@ -2,13 +2,13 @@
 
 0.4.0 adds main-task routing through the Gearshift composer, a pooled connection to the Decisions API, and a helper that keeps its model list current by itself. It also corrects the wording: with routing on, Gearshift **sets** a subagent's model and reasoning effort; it does not merely recommend them. Everything below was observed on 2026-10-07 with Windows Codex 0.162.0-alpha.2. The numbers are in [live-proof-0.4.0.json](live-proof-0.4.0.json).
 
-**Status: installed on the owner's computer on 2026-10-07. The hosted preview is not yet redeployed.** The live checks below ran the built package against a throwaway store before anything was installed.
+**Status: installed on the owner's computer and the owner-private hosted preview redeployed on 2026-10-07.** Codex app and hosted rollout observations are recorded below. The earlier live checks ran the built package against a throwaway store before anything was installed.
 
 ## Installation, as observed
 
 - The installer ran quietly and exited 0. The runtime is `%USERPROFILE%\.gearshift\desktop\0.4.0`; the 0.3.1 folder is still beside it. The global `gearshift` command reports 0.4.0.
 - `gearshift doctor` reports no failures. All three hooks are still trusted, and their trust hashes in the Codex configuration are the same as before the install, so no renewed trust was asked for.
-- The helper reports version 0.4.0, routing on, waiting for an eligible subagent. That state requires a successful settings sync with the hosted service, which has not been updated, so the fallback to the older report shape is working against the real service.
+- Before the hosted rollout, the helper reported version 0.4.0, routing on, waiting for an eligible subagent. Settings sync worked against the older hosted service using the fallback report shape. The full report was accepted after the rollout, as recorded below.
 - The registered Codex program, which had pointed at a folder a Codex update removed, now points at the current one.
 - The 0.3.1 helper was found not running before the install, so subagent routing had been off on this computer. The new helper was started outside any assistant's process tree, the way the Startup shortcut starts it, so that closing an app cannot take it down. The Startup shortcut now points at 0.4.0.
 - Not done: no composer task was run on the installed copy, and no sign-out or reboot was observed.
@@ -66,10 +66,12 @@ The rule was checked by replaying the real answer through the shipped code and b
 
 **The PowerShell hook wrapper stays.** It costs about 280 ms per hook. It exists because a direct command failed on an earlier Codex build. A replacement cannot be tried on the real host without the owner trusting new hook definitions, and a wrong one would stop routing altogether. A third of a second on a subagent that then runs for much longer is not worth that risk untested. Revisiting it needs one deliberate trial on the host with a single re-trust.
 
-## Still to do
+## Codex rollout verification (2026-10-07)
 
-- Redeploy the hosted preview from `sites-preview` so its panel knows 0.4.0. Until then the helper reports to it in the 0.3.1 shape and settings sync continues. The steps are in [HANDOFF-CODEX-0.4.0.md](HANDOFF-CODEX-0.4.0.md).
-- Open a new chat in the Codex app so it loads the 0.4.0 plugin. Chats that were already open keep what they loaded.
+- **Plugin in Codex:** the Gearshift Desktop page showed version 0.4.0 and "Automatically sets model and reasoning effort for eligible new subagents; routes main tasks through the Gearshift composer." Its long description explained that preview records only and that native Codex chats keep their selected main model. The Desktop app's own plugin list reported installed/enabled 0.4.0; `gearshift doctor` reported no failures. All three hooks were enabled in the app with no renewed trust prompt. A fresh chat received "Gearshift never changes this chat's main model." and did not receive the old "Automatic main-model selection is unavailable." note. No app restart was needed.
+- **Hosted preview:** 221 tests and the Sites build passed. Approved source commit `07f4a73f9727a54cc613c46de7b341106364728c` was pushed to the existing Sites repository and deployed with owner-only access unchanged. Sites version 9 is `appgprj_6ac5a29dd03c8191abdf2ee107ed54da~appgver_473c2752179481919cb88ae098548834`; deployment `appgdep_6ac6d5f9f6ac8191805e8f13c537607e` succeeded. `/healthz` returned HTTP 200 with `{"ok":true,"version":"0.4.0"}`. The specified restart outside the assistant's process tree succeeded. Local routing remained on / waiting_for_eligible_subagent; the hosted status and open-panel responses reported device 0.4.0, `main_model_routing: composer`, and confirmed settings at revision 3. In a fresh Codex chat, the new Gearshift Preview panel visibly mounted and its Gearshift composer main-tasks line and "Settings confirmed" were readable in the current dark theme. `mounted_panel_verified`, `embedded_mount_observed`, and `embedded_updated_readability_verified` are true for `ui://gearshift/panel-0.4.0-1.html` in [sites-preview.json](sites-preview.json).
+
+Verification limits: standalone browser access required ChatGPT sign-in, so the browser panel and light/dark flags are false for this resource. Direct MCP `resources/list` and `tools/list` requests using Sites-provided access returned HTTP 401; neither live discovery response was independently verified. The deployed source and passing tests declare the same five tools and the new panel address; the connected `gearshift_status` and `gearshift_open_panel` tools worked. No Decisions calls, composer tasks, or subagent routing tests were made during this rollout; the helper's Decisions count stayed at 10. Installed routing execution, reboot behavior, and the earlier live-test limitations remain unverified.
 
 ---
 
