@@ -8,7 +8,11 @@ Gearshift chooses a model and **reasoning effort** for Codex work on your comput
 | A task started from the **Gearshift composer** in Gearshift Desktop | Chooses the model and reasoning effort **before every turn** and starts the turn with them. |
 | A chat started in the Codex app itself | Nothing for the main model. Codex gives a plugin no way to change it. Its subagents are still routed. |
 
-Opening Gearshift shows controls without supplying work or authorizing agents. Background routing is one persistent setting across this Windows account's local projects. Fresh or invalid configuration is effectively Off. Local Codex delegates on direct request or applicable project/skill instructions; [the documented Ultra exception applies to ChatGPT Work](https://learn.chatgpt.com/docs/agent-configuration/subagents#availability). Waiting for an eligible subagent is normal.
+Opening Gearshift does not start any work or authorize any agents. Background routing is one setting, and it applies to all local projects on this Windows account. A new or invalid configuration behaves as Off. Codex only creates subagents when you ask it to, or when project or skill instructions say to; [the documented Ultra exception applies to ChatGPT Work](https://learn.chatgpt.com/docs/agent-configuration/subagents#availability). Waiting for an eligible subagent to appear is normal.
+
+## Screenshot
+
+> **Screenshot coming soon.** A capture of the Gearshift composer showing a routing decision (chosen model, reasoning effort and its label) will be added here.
 
 ## Install
 
