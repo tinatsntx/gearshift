@@ -23,6 +23,7 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;margin:0}
 .entry.command pre,.entry.tool pre,.entry.file_change pre{font-family:ui-monospace,Consolas,monospace;font-size:.9rem}
 .ask{border:1px solid var(--warn);border-radius:10px;padding:10px 12px;margin:10px 0;background:var(--bg)}
 .ask pre{font-family:ui-monospace,Consolas,monospace;font-size:.9rem;margin:6px 0}
+dialog{color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:12px;width:min(680px,calc(100% - 64px));padding:20px}dialog::backdrop{background:#0008}dialog h2{margin:0 0 12px}.folder-list{max-height:40vh;overflow:auto;margin:12px 0;display:flex;flex-direction:column;gap:4px}.folder-list button{text-align:left;overflow-wrap:anywhere}
 </style>
 <h1>Gearshift Desktop</h1>
 <p class=lede>Automatic model and reasoning effort for Codex on this computer.</p>
@@ -40,6 +41,15 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;margin:0}
 <p id=composeError class=err role=alert></p>
 <p class=muted>Main tasks are routed here. A chat you start in the Codex app keeps the model you pick there; only its subagents are routed.</p>
 </fieldset>
+<dialog id=folderPicker aria-labelledby=folderTitle>
+<h2 id=folderTitle>Choose a workspace folder</h2>
+<div class=row><button id=folderHome type=button>Home</button><button id=folderUp type=button>Up</button></div>
+<label for=folderPath>Folder path</label>
+<div class=row><input id=folderPath class=grow type=text autocomplete=off spellcheck=false><button id=folderGo type=button>Open folder</button></div>
+<p id=folderStatus role=status></p><p id=folderError class=err role=alert></p>
+<div id=folderList class=folder-list></div>
+<div class=row><button id=folderUse class=primary type=button disabled>Use this folder</button><button id=folderCancel type=button>Cancel</button></div>
+</dialog>
 <div id=tasks></div>
 
 <fieldset><legend>Subagent routing</legend><label><input type=checkbox id=enabled> On</label><button id=apply>Apply</button><label>Goal <select id=goal><option>balanced</option><option>quality</option><option>economy</option></select></label><p class=muted>When on, Gearshift automatically sets the model and reasoning effort of eligible new subagents before they start, in the Codex app and in tasks started here. The same switch controls Auto above.</p><p id=settingsstate></p><p id=adaptive class=muted></p><details><summary>Diagnostics</summary><p>Preview makes classification requests and records the choice without applying it; it can use API credits.</p><button id=preview>Enable preview</button><button id=catalog>Refresh model list</button><pre id=diagnostics></pre><h3>Routing evidence</h3><pre id=status></pre></details></fieldset>
@@ -262,7 +272,25 @@ function showAccess(){q('accessNote').textContent=ACCESS[q('access').value||'']}
 q('access').onchange=showAccess;showAccess();
 var prepared=false;
 q('task').onfocus=function(){if(prepared)return;prepared=true;call('compose/prepare').then(scheduleRefresh,function(){prepared=false})};
-q('pick').onclick=async function(){q('pick').disabled=true;try{var r=await call('compose/pick_folder');if(r.path)q('cwd').value=r.path;else if(r.unsupported)q('composeError').textContent='Type the folder path instead.'}catch(e){}finally{q('pick').disabled=false}};
+var folderCurrent=null,folderRequest=0;
+var FOLDER_ERR={folder_invalid:'Enter a full folder path.',folder_not_found:'That folder does not exist.',folder_unreadable:'That folder could not be read. Choose another folder.'};
+async function browseFolder(folder){
+  var request=++folderRequest;folderCurrent=null;q('folderUse').disabled=true;q('folderUp').disabled=true;q('folderError').textContent='';q('folderStatus').textContent='Loading folders...';q('folderList').replaceChildren();
+  try{
+    var r=await call('compose/folders',{path:folder||null});if(request!==folderRequest||!q('folderPicker').open)return;
+    folderCurrent=r;q('folderPath').value=r.path;q('folderUp').disabled=!r.parent;q('folderUse').disabled=false;q('folderStatus').textContent=r.folders.length?'Choose a folder below, or use this folder.':'This folder has no subfolders. You can use this folder.';
+    r.folders.forEach(function(folder){var button=el('button',folder.name);button.type='button';button.onclick=function(){browseFolder(folder.path)};q('folderList').append(button)});
+  }catch(e){if(request!==folderRequest||!q('folderPicker').open)return;q('folderStatus').textContent='';q('folderError').textContent=FOLDER_ERR[e.message]||'Folders could not be loaded. Try again, or type the workspace path on the main page.';}
+}
+q('pick').onclick=function(){q('folderPicker').showModal();return browseFolder(q('cwd').value.trim()||null)};
+q('folderHome').onclick=function(){return browseFolder(null)};
+q('folderUp').onclick=function(){if(folderCurrent&&folderCurrent.parent)return browseFolder(folderCurrent.parent)};
+q('folderGo').onclick=function(){return browseFolder(q('folderPath').value.trim())};
+q('folderPath').oninput=function(){q('folderUse').disabled=true};
+q('folderPath').onkeydown=function(event){if(event.key==='Enter'){event.preventDefault();browseFolder(q('folderPath').value.trim())}};
+q('folderUse').onclick=function(){if(!folderCurrent||q('folderUse').disabled)return;q('cwd').value=folderCurrent.path;q('folderPicker').close()};
+q('folderCancel').onclick=function(){q('folderPicker').close()};
+q('folderPicker').onclose=function(){folderRequest+=1;folderCurrent=null};
 
 // ---- status and live updates --------------------------------------------------
 async function refresh(){try{var s=await call('status');lastStatus=s;q('summary').textContent='Subagent routing: '+words(s.routing_state)+' ('+words(s.routing_reason)+')';if(!dirty){q('enabled').checked=s.routing_mode==='auto';q('goal').value=s.optimization_goal;}

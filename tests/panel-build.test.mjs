@@ -26,6 +26,8 @@ const SCRIPT = localPanel.match(/<script>([\s\S]*)<\/script>/)[1];
 function fakeElement(tag = "div") {
   const node = {
     tag, children: [], attributes: {}, className: "", value: "", checked: false, own: "",
+    showModal() { node.open=true; },
+    close() { node.open=false; node.onclose?.(); },
     append(...items) { for (const item of items) { item.parent = node; node.children.push(item); } },
     replaceChildren(...items) { node.children = []; node.append(...items); },
     insertBefore(item, before) { node.children = node.children.filter((child) => child !== item); const at = before ? node.children.indexOf(before) : -1; item.parent = node; if (at === -1) node.children.push(item); else node.children.splice(at, 0, item); },
@@ -46,7 +48,7 @@ function fakeElement(tag = "div") {
 }
 
 /** Runs the panel script against a status payload and returns the fake page. */
-async function runPanel(statusPayload, { eventSource = false } = {}) {
+async function runPanel(statusPayload, { eventSource = false, reply } = {}) {
   const byId = {};
   const document = {
     getElementById(id) { return (byId[id] ??= fakeElement(id)); },
@@ -55,7 +57,7 @@ async function runPanel(statusPayload, { eventSource = false } = {}) {
   const calls = [], sources = [];
   const context = {
     document, setInterval() {}, setTimeout() { return 1; }, crypto: { randomUUID: () => "11111111-2222-4333-8444-555555555555" }, window: {},
-    fetch: async (url, options) => { calls.push({ url, body: options?.body ? JSON.parse(options.body) : null }); return { ok: true, json: async () => (url === "/api/status" ? statusPayload : { status: "started", task_id: "t-1" }) }; },
+    fetch: async (url, options) => { const body=options?.body ? JSON.parse(options.body) : null; calls.push({ url, body }); return url === "/api/status" ? { ok:true,json:async()=>statusPayload } : reply ? reply(url,body) : { ok:true,json:async()=>({status:"started",task_id:"t-1"}) }; },
     ...(eventSource ? { EventSource: function EventSource(url) { this.url = url; this.listeners = {}; this.addEventListener = (type, fn) => { this.listeners[type] = fn; }; this.close = () => {}; sources.push(this); } } : {}),
   };
   vm.runInNewContext(SCRIPT, context);
@@ -68,6 +70,36 @@ const routing = (extra = {}) => ({ status: "routed", source: "decisions", reason
 const baseStatus = (composer_tasks) => ({ routing_state: "on", routing_reason: "waiting_for_eligible_subagent", routing_mode: "auto", optimization_goal: "balanced", connected: true, passthrough_counts: {}, recent: [], main_turns: [], composer_tasks });
 const task = (extra = {}) => ({ task_id: "t-1", cwd: "C:\\work\\project", title: "Explain the router", status: "idle", note: null, thread_id: "th", turn_id: null, routing: routing(), turn_count: 1, pending_count: 0, requests: [], transcript: [{ id: "u1", kind: "user", text: "Explain the router" }, { id: "c1", kind: "command", text: "npm test", status: "completed", exit_code: 0 }, { id: "a1", kind: "agent", text: "It routes." }], streaming: null, created_at: 2, updated_at: 2, ...extra });
 const snapshot = (tasks, extra = {}) => ({ seq: 7, app_server: { state: "ready" }, default_model: "gpt-6.1-sol", presets: [{ id: "luna_fast", model: "gpt-6-luna", effort: "low" }, { id: "sol_deep", model: "gpt-6.1-sol", effort: "xhigh" }], active_tasks: 0, tasks, recent_folders: ["C:\\work\\project"], limits: { max_text: 32000, max_active_tasks: 4 }, ...extra });
+
+test("Browse navigates and selects a workspace without starting or preparing a task",async()=>{
+  const root="C:\\work",child=root+"\\<project>";
+  const {byId,calls}=await runPanel(baseStatus(snapshot([])),{reply:async(url,body)=>{
+    assert.equal(url,"/api/compose/folders");
+    return {ok:true,json:async()=>({path:body.path,parent:body.path===root?"C:\\":root,folders:body.path===root?[{name:"<project>",path:child}]:[]})};
+  }});
+  byId.cwd.value=root;
+  await byId.pick.onclick();assert.equal(byId.folderPicker.open,true);
+  assert.equal(byId.folderList.children[0].textContent,"<project>","folder names are text, never markup");
+  await byId.folderList.children[0].onclick();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(byId.folderPath.value,child);assert.equal(byId.folderUse.disabled,false);
+  byId.folderUse.onclick();assert.equal(byId.cwd.value,child);assert.equal(byId.folderPicker.open,false);
+  assert.ok(calls.every(call=>["/api/status","/api/compose/folders"].includes(call.url)));
+  await byId.pick.onclick();byId.folderCancel.onclick();assert.equal(byId.cwd.value,child);
+});
+
+test("Browse shows a failure and never lets a stale folder be selected",async()=>{
+  let respond;
+  const {byId}=await runPanel(baseStatus(snapshot([])),{reply:async()=>new Promise(resolve=>{respond=resolve;})});
+  const pending=byId.pick.onclick();
+  assert.equal(byId.folderUse.disabled,true);
+  byId.folderCancel.onclick();
+  respond({ok:true,json:async()=>({path:"C:\\wrong",parent:"C:\\",folders:[]})});await pending;
+  assert.notEqual(byId.cwd.value,"C:\\wrong");assert.equal(byId.folderUse.disabled,true);
+  const failed=byId.pick.onclick();respond({ok:false,json:async()=>({error:"folder_unreadable"})});await failed;
+  assert.match(byId.folderError.textContent,/could not be read/);assert.equal(byId.folderUse.disabled,true);
+  assert.equal(byId.folderPicker.open,true,"the dialog remains available for recovery");
+});
 
 test("the routing badge says plainly what happened, in every case", async () => {
   const { context } = await runPanel(baseStatus(snapshot([])));

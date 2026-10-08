@@ -2,8 +2,6 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import { ipcServer,ipcName,createIpcToken } from "../plugins/gearshift/lib/ipc.mjs";
 import { resolveDataDir,loadRawConfig,writeConfig } from "../plugins/gearshift/lib/config.mjs";
@@ -21,6 +19,7 @@ import { VERSION } from "../plugins/gearshift/lib/version.mjs";
 import { loadCredential } from "../plugins/gearshift/lib/credentials.mjs";
 import { refreshCatalogAsync,transcriptHostIdentity } from "../plugins/gearshift/lib/catalog.mjs";
 import { localPanel } from "./local-panel.mjs";
+import { listFolders,FolderError } from "./folders.mjs";
 import { BASE_URL } from "./cloud-config.mjs";
 import { migrateStore } from "../plugins/gearshift/lib/migration.mjs";
 import { setLocalSettings,recoverSettings,reconcileSettings,syncState,markSettingsError } from "../plugins/gearshift/lib/settings.mjs";
@@ -125,21 +124,6 @@ function streamEvents(req,res,origin){
   while(streams.size>4){const oldest=streams.values().next().value;oldest.close();oldest.res.end();}
   req.on("close",()=>stream.close());
 }
-// A native folder chooser, because a browser page cannot learn a folder's full path.
-let pickingFolder=false;
-async function pickFolder(){
-  if(process.platform!=="win32")return {unsupported:true};
-  if(pickingFolder)return {busy:true};
-  pickingFolder=true;
-  try{
-    const script="[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false); Add-Type -AssemblyName System.Windows.Forms; $owner=New-Object System.Windows.Forms.Form; $owner.TopMost=$true; $owner.ShowInTaskbar=$false; $owner.Opacity=0; $owner.Show(); $dialog=New-Object System.Windows.Forms.FolderBrowserDialog; $dialog.Description='Choose the workspace folder for this Gearshift task'; $dialog.ShowNewFolderButton=$false; if($dialog.ShowDialog($owner) -eq [System.Windows.Forms.DialogResult]::OK){[Console]::Out.Write($dialog.SelectedPath)}; $owner.Close()";
-    const {stdout}=await promisify(execFile)("powershell.exe",["-NoProfile","-NonInteractive","-STA","-Command",script],{encoding:"utf8",windowsHide:true,timeout:120000,maxBuffer:65536});
-    const chosen=stdout.trim();
-    if(!chosen)return {cancelled:true};
-    return fs.statSync(chosen).isDirectory()?{path:chosen}:{cancelled:true};
-  }catch{return {cancelled:true};}
-  finally{pickingFolder=false;}
-}
 browser=http.createServer(async(req,res)=>{
   res.setHeader("Cache-Control","no-store");res.setHeader("Referrer-Policy","no-referrer");res.setHeader("X-Frame-Options","DENY");
   const origin=`http://127.0.0.1:${browser.address().port}`;
@@ -164,7 +148,7 @@ browser=http.createServer(async(req,res)=>{
       case "/api/compose/respond":result=composer.respond(input);break;
       case "/api/compose/resume_queue":result=await composer.resumeQueue(input);break;
       case "/api/compose/dismiss":result=composer.dismiss(input);break;
-      case "/api/compose/pick_folder":result=await pickFolder();break;
+      case "/api/compose/folders":result=await listFolders(input);break;
       case "/api/connect":if(typeof input.key!=="string"||!/^sk-[A-Za-z0-9_-]{16,}$/.test(input.key))throw Error("invalid_key");result=await connectionTest(input.key);if(result.reason==="connected"){saveCredential({dataDir,key:input.key});clearCache({dataDir});}break;
       case "/api/connection_test":{const cred=loadCredential({dataDir});result=cred?await connectionTest(cred.key):{reason:"no_credential"};break;}
       case "/api/disconnect":deleteCredential({dataDir});clearCache({dataDir});cloud=null;reconciled=true;fs.rmSync(cloudFile,{force:true});result={disconnected:true};break;
@@ -175,7 +159,7 @@ browser=http.createServer(async(req,res)=>{
       case "/api/pair":pendingPair=await request("/device/pair/start",{},null);result={url:`${BASE_URL}/pair/${pendingPair.ticket}`};break;
       default:throw Error("operation_invalid");
     }res.setHeader("Content-Type","application/json");res.end(JSON.stringify(result));
-  }catch(error){res.writeHead(400,{"Content-Type":"application/json"});res.end(JSON.stringify({error:error instanceof TaskError?error.code:["config_invalid","settings_invalid","settings_busy","settings_readback_failed","request_too_large"].includes(error.message)?error.message:"operation_failed"}));}
+  }catch(error){res.writeHead(400,{"Content-Type":"application/json"});res.end(JSON.stringify({error:error instanceof TaskError||error instanceof FolderError?error.code:["config_invalid","settings_invalid","settings_busy","settings_readback_failed","request_too_large"].includes(error.message)?error.message:"operation_failed"}));}
 });
 await new Promise(resolve=>browser.listen(0,"127.0.0.1",resolve));
 async function handleIpc(op,payload){
