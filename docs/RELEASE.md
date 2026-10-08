@@ -6,6 +6,8 @@
 
 ## Launch readiness (2026-10-08)
 
+Published the Windows development-preview prerelease [v0.4.0](https://github.com/tinatsntx/gearshift/releases/tag/v0.4.0) on 2026-10-08 at 13:22:33 UTC (08:22:33 CDT). The remote tag points to `199b06761b7d00b01e87cd184b4f07d51066bc38`; GitHub reports draft `false` and prerelease `true`. An anonymous download returned HTTP 200, 67,379,435 bytes, and SHA-256 `99ae3a37b6ba5e4ec9e8192f0b100fa57484737ab962a6518f8d4aa19c9c44d2`, matching the tested package. Following the README's Releases link showed the release marked Pre-release, without a Latest label. Both release assets were preserved, and no Decisions calls were made for the launch.
+
 A review on 2026-10-08 named four things missing before a public announcement. Each was then tried on the **installed** copy, with its real store, the real Codex program and the real Decisions API. Four more Decisions calls were made, 18 on this store in all.
 
 | Gap | Result |
