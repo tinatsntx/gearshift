@@ -13,7 +13,7 @@ No Codex hook can change the model of the chat it runs in, and the Desktop app's
 
 | Path | Role |
 |---|---|
-| `hooks/hooks.json` | Wires three hooks into Codex. Unchanged since 0.3.1, so its trust carries over |
+| `hooks/hooks.json` | Wires three hooks into Codex. One group and one command per event |
 | `hooks/pre_tool_use.mjs` | The routing hook. Synchronous. Prints replacement spawn arguments or nothing |
 | `hooks/session_start.mjs` | Prints passive scope guidance, and tells the helper Codex is active |
 | `hooks/post_tool_use.mjs` | Records the spawn result. Asynchronous |
@@ -28,6 +28,8 @@ No Codex hook can change the model of the chat it runs in, and the Desktop app's
 | `lib/cache.mjs`, `lib/ledger.mjs`, `lib/turns.mjs` | Local stores |
 | `lib/status.mjs` | Readiness and evidence, and the narrow report the hosted service receives |
 | `lib/doctor.mjs`, `lib/probe.mjs`, `lib/guidance.mjs`, `lib/version.mjs` | Checks, shape-only diagnostics, the note text, the version |
+| `lib/sandbox-health.mjs` | What Codex last recorded about its own Windows sandbox. Reads a log; starts nothing |
+| `lib/hookio.mjs` | Reading a hook's input and writing its result |
 
 The helper lives in the repository's `desktop/` folder and is bundled into one file for the package:
 
@@ -103,7 +105,15 @@ A stopped or failed turn leaves queued messages waiting for the user. After a he
 ## Measured, not assumed
 
 - On Windows each hook is started through PowerShell (a quoting workaround for older Codex builds). On the development machine that costs about 360 ms per hook against about 80 ms for Node alone. Keep-alive does not touch this. The wrapper was kept: a replacement cannot be tried on the real host without the hooks being trusted again, and a wrong one would stop routing altogether.
+- A hook must not wait for Codex to close its input. The session guidance hook once timed out at Codex's five-second limit because its PowerShell launcher read the input to the end first. That launcher now hands the pipe straight to Node, and `readStdinJson` returns as soon as what has arrived parses as a complete object. The routing and recording launchers still read to the end; they have only ever been observed with a pipe that closes, and changing them costs every user a renewed trust.
+- A composer turn's Decisions call gets 3000 ms, a subagent's 1500 ms. The first call after a quiet spell was measured at 2020 ms on a fresh connection, and a turn that then runs for many seconds is better started a second late on the right model. A subagent's call sits inside the hook's five-second limit together with the PowerShell start, so it keeps the shorter limit.
 - With six presets and an abstain option, Decisions' confidence in its top choice was below 0.6 for most ordinary prompts tried during 0.4.0 acceptance. A real answer showed why: for a hard task the estimate was split across the deep presets (0.46 and 0.31) with only 0.21 on anything lighter. That is what the cautious pick is built on. See `docs/RELEASE.md`.
+
+## Things that belong to Codex and are only reported
+
+**The Windows sandbox.** When Codex cannot prepare its sandbox, every sandboxed command in a composer task is refused before it starts. Gearshift cannot repair that and must not try: the sandbox is the boundary the user chose. `lib/sandbox-health.mjs` reads the last result line of Codex's own sandbox log, which costs nothing and cannot raise a Windows permission prompt the way running a probe command could. The doctor and the local page show it, and `task-service.mjs` labels a command Codex reports as failed with no real exit code and that wording. The command's output is never kept.
+
+**The installer runs on Windows PowerShell 5.1**, which turns any line a program writes to its error stream into a script-stopping error once errors are set to stop. Codex writes ordinary warnings there. Every Codex call in `Install.ps1` and `Uninstall.ps1` therefore goes through one function that judges it by exit code alone.
 
 ## Not built yet
 

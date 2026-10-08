@@ -210,3 +210,17 @@ test("starting a task sends one identified message, and the notes match the rout
   const noKey = await runPanel({ ...baseStatus(snapshot([])), connected: false });
   assert.match(noKey.byId.composerNote.textContent, /No API key is connected/);
 });
+
+test("pairing is offered only where hosted controls exist, and a failing Codex sandbox is explained", async () => {
+  const plain = await runPanel(baseStatus(snapshot([])));
+  assert.equal(plain.byId.pair.hidden, true, "a public install has nothing to pair with");
+  assert.equal(plain.byId.sandboxWarn.hidden, true);
+
+  const advice = "Codex's Windows sandbox failed the last time it was used.";
+  const blocked = task({ transcript: [{ id: "c1", kind: "command", text: "type notes.txt", status: "failed", exit_code: -1, problem: "codex_sandbox" }] });
+  const owner = await runPanel({ ...baseStatus(snapshot([blocked])), hosted_controls: true, codex_sandbox: { state: "failing", advice } });
+  assert.equal(owner.byId.pair.hidden, false);
+  assert.equal(owner.byId.sandboxWarn.hidden, false);
+  assert.match(owner.byId.sandboxWarn.textContent, /^Codex's Windows sandbox failed the last time it was used[.] This comes from Codex, not from Gearshift[.]/);
+  assert.deepEqual(owner.byId.tasks.children[0].querySelector(".log").children.map((entry) => entry.textContent), ["Command $ type notes.txt  (did not run: Codex could not set up its Windows sandbox)"]);
+});

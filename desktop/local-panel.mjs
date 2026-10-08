@@ -5,6 +5,7 @@
 export const localPanel = String.raw`<!doctype html><html lang="en"><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Gearshift Desktop</title><style>
 :root{color-scheme:light dark;--fg:#16181d;--muted:#565d6b;--bg:#ffffff;--card:#f5f6f8;--line:#c9ced8;--accent:#1d4ed8;--ok:#0f6b3a;--warn:#8a4b00;--bad:#a11a1a}
 @media (prefers-color-scheme:dark){:root{--fg:#eceef2;--muted:#aab1bf;--bg:#14161a;--card:#1d2026;--line:#3a404c;--accent:#8ab4ff;--ok:#6fd49a;--warn:#f0b866;--bad:#ff8f8f}}
+[hidden]{display:none!important}
 body{font:16px/1.45 system-ui,sans-serif;max-width:820px;margin:28px auto;padding:0 20px;color:var(--fg);background:var(--bg)}
 h1{margin:0 0 4px}h2{margin:28px 0 8px;font-size:1.15rem}.lede,.muted{color:var(--muted)}
 button,input,select,textarea{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
@@ -38,6 +39,7 @@ dialog{color:var(--fg);background:var(--bg);border:1px solid var(--line);border-
 <textarea id=task rows=4 placeholder="Describe what you want done"></textarea>
 <div class=row><label for=preset style="margin:0">Model</label><select id=preset><option value="">Auto</option></select><label for=access style="margin:0">Access</label><select id=access><option value="">Your Codex default</option><option value="read-only">Read only</option><option value="workspace-write">This folder</option><option value="danger-full-access">Full access</option></select><button id=start class=primary type=button>Start task</button><span id=appserver class=muted></span></div>
 <p id=accessNote class=muted></p>
+<p id=sandboxWarn class=err role=status hidden></p>
 <p id=composeError class=err role=alert></p>
 <p class=muted>Main tasks are routed here. A chat you start in the Codex app keeps the model you pick there; only its subagents are routed.</p>
 </fieldset>
@@ -57,7 +59,7 @@ dialog{color:var(--fg);background:var(--bg);border:1px solid var(--line);border-
 <p id=error role=alert></p>
 <h2>Why a subagent was not routed</h2><pre id=reasons></pre>
 <p class=muted>Waiting for an eligible subagent is normal. Gearshift does not create work or authorize delegation.</p>
-<button id=pair>Pair with ChatGPT</button><button id=refresh>Refresh status</button>
+<button id=pair hidden>Pair with ChatGPT</button><button id=refresh>Refresh status</button>
 <script>
 var q=function(id){return document.getElementById(id)};
 var dirty=false,lastStatus=null,drafts={},deltas={},stream=null,refreshTimer=null,PENDING_KEY='gearshift_pending';
@@ -106,7 +108,7 @@ var WHO={user:'You',agent:'Codex',command:'Command',file_change:'Files changed',
 function entryNode(entry){
   var box=el('div',null,'entry '+entry.kind);box.append(el('div',WHO[entry.kind]||entry.kind,'who'));
   var text=entry.text||'';
-  if(entry.kind==='command'){text='$ '+text;if(entry.status==='inProgress')text+='  (running)';else if(entry.exit_code!==null&&entry.exit_code!==undefined)text+='  (exit '+entry.exit_code+')'}
+  if(entry.kind==='command'){text='$ '+text;if(entry.status==='inProgress')text+='  (running)';else if(entry.problem==='codex_sandbox')text+='  (did not run: Codex could not set up its Windows sandbox)';else if(entry.exit_code!==null&&entry.exit_code!==undefined)text+='  (exit '+entry.exit_code+')'}
   var body=el('pre',text);if(entry.kind==='error')body.className='err';box.append(body);return box;
 }
 function askNode(task,request){
@@ -297,6 +299,8 @@ async function refresh(){try{var s=await call('status');lastStatus=s;q('summary'
   var proof=[];if(s.main_turn_selection_verified)proof.push('A Decisions-selected main task was verified.');if(s.decisions_selection_verified)proof.push('A Decisions-selected subagent was verified.');else if(s.host_rewrite_verified)proof.push('Subagent settings were applied and verified (a local default, not a Decisions selection).');
   q('adaptive').textContent=proof.length?proof.join(' '):'Nothing has been verified on this Codex version yet.';
   q('settingsstate').textContent=s.settings_error?'Settings failed: '+s.settings_error:(s.settings_update||s.routing_reason==='settings_sync_pending')&&s.paired?'Settings pending local/hosted reconciliation':'Settings confirmed locally';
+  var sandbox=s.codex_sandbox&&s.codex_sandbox.state==='failing'?s.codex_sandbox.advice+' This comes from Codex, not from Gearshift. Tasks set to Full access do not use the sandbox.':'';q('sandboxWarn').textContent=sandbox;q('sandboxWarn').hidden=!sandbox;
+  q('pair').hidden=!s.hosted_controls;
   q('reasons').textContent=Object.entries(s.passthrough_counts||{}).map(function(kv){return words(kv[0])+': '+kv[1]}).join('\n')||'No skipped spawns recorded';
   q('diagnostics').textContent=JSON.stringify({local:s.local_diagnostics,codex_session:s.composer,model_list_refresh:s.catalog_refresh,connection:s.transport},null,2);
   q('status').textContent=JSON.stringify({main_tasks:s.main_turns,subagents:s.recent,decisions_calls:s.decisions_calls},null,2);

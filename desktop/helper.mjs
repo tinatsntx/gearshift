@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
+import os from "node:os";
 import { ipcServer,ipcName,createIpcToken } from "../plugins/gearshift/lib/ipc.mjs";
 import { resolveDataDir,loadRawConfig,writeConfig } from "../plugins/gearshift/lib/config.mjs";
 import { saveCredential,deleteCredential } from "../plugins/gearshift/lib/credentials.mjs";
@@ -21,6 +22,7 @@ import { refreshCatalogAsync,transcriptHostIdentity } from "../plugins/gearshift
 import { localPanel } from "./local-panel.mjs";
 import { listFolders,FolderError } from "./folders.mjs";
 import { BASE_URL } from "./cloud-config.mjs";
+import { readSandboxHealth, sandboxAdvice } from "../plugins/gearshift/lib/sandbox-health.mjs";
 import { migrateStore } from "../plugins/gearshift/lib/migration.mjs";
 import { setLocalSettings,recoverSettings,reconcileSettings,syncState,markSettingsError } from "../plugins/gearshift/lib/settings.mjs";
 import { rediscoverHost } from "../plugins/gearshift/lib/host.mjs";
@@ -60,6 +62,8 @@ try{const access=JSON.parse(windowsProtection.unprotect(JSON.parse(fs.readFileSy
 const cloudFile=path.join(dataDir,"pairing.json"),commandFile=path.join(dataDir,"processed-commands.json");
 try{cloud=JSON.parse(windowsProtection.unprotect(JSON.parse(fs.readFileSync(cloudFile,"utf8")).ciphertext));}catch{}
 reconciled=!cloud;
+// What Codex last recorded about its own Windows sandbox. Local page only; it never reaches the hosted report.
+const sandboxView=()=>{const health=readSandboxHealth({codexHome:process.env.CODEX_HOME??path.join(os.homedir(),".codex")});return {...health,advice:sandboxAdvice(health)};};
 const helperStatus=()=>status(dataDir,{helperReachable:true,reconciled,composer:composer.summary(),catalogRefresh:catalogGuard.state(),transport:routing.warmState()});
 let processed={};try{processed=JSON.parse(fs.readFileSync(commandFile,"utf8"));}catch{}
 async function request(route,body,bearer=cloud?.token){
@@ -140,7 +144,7 @@ browser=http.createServer(async(req,res)=>{
     let result;switch(req.url){
       // composer_tasks carries what the user typed and what the agent said. It is
       // only ever part of this local answer, never of the hosted report.
-      case "/api/status":result={...helperStatus(),paired:Boolean(cloud),composer_tasks:composer.snapshot(),local_diagnostics:{data_dir:dataDir,pipe_name:ipcName(dataDir),runtime:path.dirname(path.dirname(fileURLToPath(import.meta.url))),data_dir_override:Boolean(process.env.GEARSHIFT_DATA_DIR)}};break;
+      case "/api/status":result={...helperStatus(),paired:Boolean(cloud),hosted_controls:Boolean(siteAccess||cloud),codex_sandbox:sandboxView(),composer_tasks:composer.snapshot(),local_diagnostics:{data_dir:dataDir,pipe_name:ipcName(dataDir),runtime:path.dirname(path.dirname(fileURLToPath(import.meta.url))),data_dir_override:Boolean(process.env.GEARSHIFT_DATA_DIR)}};break;
       // The user is about to type a task: start Codex and open the Decisions connection now.
       case "/api/compose/prepare":routing.warm({reason:"composer"});result=composer.prepare();break;
       case "/api/compose/submit":result=await composer.submit(input);break;
@@ -156,10 +160,10 @@ browser=http.createServer(async(req,res)=>{
       case "/api/refresh_catalog":{
         const catalog=await refreshCatalogAsync({dataDir,resolveHost:rediscoverHost});result={catalog_refreshed:true,host_identity:catalog.host_identity};break;
       }
-      case "/api/pair":pendingPair=await request("/device/pair/start",{},null);result={url:`${BASE_URL}/pair/${pendingPair.ticket}`};break;
+      case "/api/pair":if(!siteAccess)throw Error("hosted_controls_unavailable");pendingPair=await request("/device/pair/start",{},null);result={url:`${BASE_URL}/pair/${pendingPair.ticket}`};break;
       default:throw Error("operation_invalid");
     }res.setHeader("Content-Type","application/json");res.end(JSON.stringify(result));
-  }catch(error){res.writeHead(400,{"Content-Type":"application/json"});res.end(JSON.stringify({error:error instanceof TaskError||error instanceof FolderError?error.code:["config_invalid","settings_invalid","settings_busy","settings_readback_failed","request_too_large"].includes(error.message)?error.message:"operation_failed"}));}
+  }catch(error){res.writeHead(400,{"Content-Type":"application/json"});res.end(JSON.stringify({error:error instanceof TaskError||error instanceof FolderError?error.code:["config_invalid","settings_invalid","settings_busy","settings_readback_failed","request_too_large","hosted_controls_unavailable"].includes(error.message)?error.message:"operation_failed"}));}
 });
 await new Promise(resolve=>browser.listen(0,"127.0.0.1",resolve));
 async function handleIpc(op,payload){

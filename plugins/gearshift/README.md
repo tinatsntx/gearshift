@@ -22,12 +22,14 @@ For a subagent, only its task name and, when Codex leaves it readable, its task 
 | Command | Purpose |
 | --- | --- |
 | `gearshift status --json` | Local mode, readiness, evidence and diagnostics |
-| `gearshift doctor` | Resolved store, registered executable, pipe, hooks and credentials |
+| `gearshift doctor` | Resolved store, registered executable, pipe, hooks, credentials, and whether Codex's own sandbox is working |
 | `gearshift config set mode off` | Immediately disable routing |
 | `gearshift config set mode auto` | Enable routing when prerequisites are ready |
 | `gearshift catalog` | Refresh the model list from the registered Desktop executable now |
 | `gearshift route --task-name example` | Explicit synthetic diagnostic; may consume usage, never spawns |
 
-There are three registered hooks: SessionStart guidance, PreToolUse routing and PostToolUse recording. Their definitions are unchanged from 0.3.1. Trust through Codex `/hooks` only when Codex requires it. The skill is passive and does not authorize delegation.
+Where the `gearshift` command is not on the path, `gearshift.cmd` in the runtime folder runs the same commands with the bundled runtime.
 
-What has been observed, and what has not, is in the repository's `docs/RELEASE.md` and `docs/live-proof-0.4.0.json`. In short: a Decisions-selected main task was verified end to end; subagent settings were applied and verified but not yet from a Decisions selection, because Codex encrypts subagent task messages and a task name alone rarely gives Decisions enough to go on. Presets are workload priors, not measured rankings or savings. Keep them listed lightest first: when Decisions is not confident in its top choice, Gearshift takes a cautious pick that is never lighter than that choice, and the list order is how it knows which preset is heavier.
+There are three registered hooks: SessionStart guidance, PreToolUse routing and PostToolUse recording. The routing and recording definitions are unchanged from 0.3.1; the guidance hook has a new Windows launch command. Trust through Codex `/hooks` only when Codex requires it. The skill is passive and does not authorize delegation.
+
+What has been observed, and what has not, is in the repository's `docs/RELEASE.md` and `docs/live-proof-0.4.0.json`. In short: a Decisions-selected main task and a Decisions-selected subagent were each verified end to end from Codex's own session files. Codex hides a subagent's task message from hooks, so a subagent is classified on its task name alone; a descriptive name gets a real choice and a vague one gets the local default. Presets are workload priors, not measured rankings or savings. Keep them listed lightest first: when Decisions is not confident in its top choice, Gearshift takes a cautious pick that is never lighter than that choice, and the list order is how it knows which preset is heavier.

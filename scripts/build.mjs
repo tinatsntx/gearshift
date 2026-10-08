@@ -1,5 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
+import crypto from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { build } from "esbuild";
 import { windowsHookCommand } from "./windows-hook.mjs";
 import { buildPanel } from "./panel-build.mjs";
@@ -31,4 +33,11 @@ fs.copyFileSync("docs/INSTALL.md",path.join(desktopDir,"README.md"));fs.copyFile
 function inventory(dir){return fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?inventory(path.join(dir,e.name)):[path.relative(out,path.join(dir,e.name))]);}
 const files=inventory(publicDir);if(files.some(p=>/hooks|\.mjs$|\.exe$|credentials|\.env/.test(p)))throw Error("public_package_contains_local_runtime");
 fs.writeFileSync(path.join(out,"packages.json"),JSON.stringify({version,public_files:files,desktop_files:inventory(desktopDir)},null,2));
+// The download: one zip of the desktop package and its SHA-256, so a release can be checked.
+// Windows' own tar writes zip files; Git's tar on PATH does not, so name it exactly.
+const zipName=`gearshift-desktop-${version}.zip`,zipFile=path.join(out,zipName);fs.rmSync(zipFile,{force:true});
+execFileSync(path.join(process.env.SystemRoot??"C:/Windows","System32","tar.exe"),["-a","-c","-f",zipName,path.basename(desktopDir)],{cwd:out,stdio:"inherit"});
+const digest=crypto.createHash("sha256").update(fs.readFileSync(zipFile)).digest("hex");
+fs.writeFileSync(zipFile+".sha256",`${digest}  ${zipName}\n`);
 console.log(`Built Gearshift ${version}: hook-free public plugin and Windows desktop runtime.`);
+console.log(`${zipName}  sha256 ${digest}`);

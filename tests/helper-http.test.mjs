@@ -254,3 +254,22 @@ test("status without a running helper says composer routing is not available rig
   assert.deepEqual([offline.version, offline.main_model_routing, offline.main_turns, offline.main_turn_selection_verified, offline.composer], [VERSION, "unsupported", [], false, undefined]);
   assert.doesNotThrow(() => Status.parse(cloudStatus(offline)));
 });
+
+test("an install without hosted access offers no pairing and reports Codex's sandbox state locally", async (t) => {
+  const h = await helper(t, { config: { mode: "off" } });
+  const sandboxDir = path.join(h.home, ".sandbox");
+  fs.mkdirSync(sandboxDir);
+  const status = async () => (await h.post("/api/status")).body;
+  const before = await status();
+  assert.deepEqual([before.hosted_controls, before.paired, before.codex_sandbox.state], [false, false, "unknown"]);
+  assert.deepEqual(await h.post("/api/pair"), { status: 400, body: { error: "hosted_controls_unavailable" } });
+
+  fs.writeFileSync(path.join(sandboxDir, "sandbox.2026-10-08.log"), [
+    "[2026-10-08T00:48:15.139320100+00:00] setup refresh: processed 0 write roots (read roots delegated); errors=[\"runtime read/execute validation failed: validate runtime read/execute access on C:\\Users\\someone\\AppData\\Local\\OpenAI\\Codex\\runtimes\\cua_node\\abc\\bin\\node_repl.exe: open ACL target for root-only update: The process cannot access the file because it is being used by another process. (os error 32)\"]",
+    "",
+  ].join(String.fromCharCode(10)));
+  const after = (await status()).codex_sandbox;
+  assert.deepEqual([after.state, after.cause, after.file, after.at], ["failing", "file_in_use", "node_repl.exe", "2026-10-08T00:48:15.139Z"]);
+  assert.match(after.advice, /could not update node_repl[.]exe while that file was in use/);
+  assert.equal(JSON.stringify(after).includes("someone"), false, "no path leaves the log");
+});

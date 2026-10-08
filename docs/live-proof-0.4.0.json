@@ -246,7 +246,8 @@
     "main_turn_applied_and_verified": true,
     "subagent_settings_applied_and_verified": true,
     "subagent_decisions_selection_verified": false,
-    "every_turn_ran_as_requested": true
+    "every_turn_ran_as_requested": true,
+    "superseded_note": "These are the 2026-10-07 acceptance results. launch_readiness holds what was verified on the installed copy on 2026-10-08."
   },
   "findings": [
     "Of the four composer turns that asked Decisions during acceptance, one was selected (confidence 0.78) and three fell below the 0.6 threshold (0.39, 0.52, 0.31) and took the local default under the rule in force at the time. That rule has since been replaced; see 'decided'.",
@@ -289,5 +290,168 @@
   "decided": {
     "confidence_rule": "Kept min_confidence at 0.6 and changed what happens below it. At or above it, the top choice is used as before. Below it, Gearshift takes the cautious pick: never lighter than the top choice, and heavy enough that min_confidence of the estimate says a preset that heavy or lighter is right. With no usable breakdown it takes the heavier of the top choice and the local default. Labeled 'cautious', never 'selected'.",
     "powershell_hook_wrapper": "Kept. It costs about 280 ms per hook, but it exists because a direct command failed on an earlier Codex build, a replacement cannot be tried on the real host without the owner trusting new hook definitions, and a mistake would stop routing altogether."
+  },
+  "launch_readiness": {
+    "measured_on": "2026-10-08",
+    "how": "The installed 0.4.0 helper on the owner's computer, with its real store, the real Codex Desktop program and the real Decisions API. Tasks were submitted to the running helper the way its local page submits them. The package under test is the one a release builds; its hook definitions are byte-identical to the installed, trusted ones.",
+    "decisions_calls": {
+      "in_this_round": 4,
+      "on_this_store_in_total": 18,
+      "note": "The 15-call budget in max_requests covered the 2026-10-07 acceptance. The owner then asked for the remaining gaps to be closed for launch, which needed live calls. Codex's own installed checks on 2026-10-07 account for the calls between 10 and 14."
+    },
+    "coding_task": {
+      "what": "Create a small module and its tests, run the tests, fix until they pass. Then a follow-up adding a second function with two more tests.",
+      "model": "Auto",
+      "access": "Full access, for one scratch folder. Codex's own Windows sandbox was refusing every sandboxed command on this computer; see codex_sandbox.",
+      "first_turn": {
+        "source": "decisions",
+        "reason": "selected",
+        "preset": "luna_fast",
+        "model": "gpt-6-luna",
+        "effort": "low",
+        "confidence": 0.64,
+        "decide_ms": 2020,
+        "socket_reused": false,
+        "ran_as_requested": true,
+        "turn_status": "completed"
+      },
+      "follow_up": {
+        "source": "decisions",
+        "reason": "selected",
+        "preset": "luna_fast",
+        "model": "gpt-6-luna",
+        "effort": "low",
+        "confidence": 0.77,
+        "decide_ms": 240,
+        "socket_reused": true,
+        "ran_as_requested": true,
+        "turn_status": "completed"
+      },
+      "commands_ran": true,
+      "files_written": [
+        "slug.mjs",
+        "slug.test.mjs"
+      ],
+      "checked_independently": "node --test in that folder afterwards: 8 tests, 8 pass, 0 fail",
+      "note": "The first call took 2020 ms on a fresh connection. Under the earlier 1500 ms composer deadline it would have been a timeout fallback, not a selection."
+    },
+    "first_attempt_with_default_access": {
+      "what": "The same coding task with Access left on the Codex default",
+      "routing": {
+        "source": "decisions",
+        "reason": "selected",
+        "preset": "luna_fast",
+        "confidence": 0.64,
+        "decide_ms": 1009,
+        "ran_as_requested": true
+      },
+      "outcome": "Codex resolved the default to a workspace-write sandbox for this folder. Its sandbox setup failed, the command was refused with exit code -1, and nothing was written. Routing and verification were unaffected."
+    },
+    "subagent": {
+      "where": "Inside a composer task whose main model was chosen explicitly, so only the subagent was classified",
+      "task_message_readable": false,
+      "classified_on": "task name only",
+      "pre_tool_use": {
+        "source": "decisions",
+        "reason": "selected",
+        "preset": "luna_fast",
+        "model": "gpt-6-luna",
+        "effort": "low",
+        "confidence": 0.73,
+        "decide_ms": 386,
+        "ipc_ms": 5,
+        "socket_reused": true,
+        "input_tokens": 380,
+        "fork_mode": "bounded",
+        "requested_model": null,
+        "requested_effort": null
+      },
+      "hook_wrote": {
+        "model": "gpt-6-luna",
+        "reasoning_effort": "low"
+      },
+      "child_session_file": {
+        "effective_model": "gpt-6-luna",
+        "effective_effort": "low",
+        "effective_verified": true
+      },
+      "host_identity": "gearshift:0.162.0-alpha.2",
+      "not_observed": "A Decisions-selected subagent spawned from a chat in the Codex app itself. It is the same hook; the app spawns recorded earlier were routed by a fallback."
+    },
+    "sandbox_label": {
+      "what": "A task limited to This folder, explicit model, asked to run one command",
+      "command": {
+        "status": "failed",
+        "exit_code": -1,
+        "labeled": "codex_sandbox"
+      },
+      "page": "The command line reads 'did not run: Codex could not set up its Windows sandbox', and the composer shows what Codex recorded and that Full access does not use the sandbox."
+    },
+    "codex_sandbox": {
+      "state": "failing",
+      "since": "the Codex update of the evening of 2026-10-06 (program folders 979a96ce184041d1 and 9691020b546a15b2, both 0.162.0-alpha.2). Earlier program folders in the same logs show no failure.",
+      "codex_says": "runtime read/execute validation failed ... node_repl.exe: open ACL target for root-only update: The process cannot access the file because it is being used by another process. (os error 32)",
+      "cause": "Inferred, not read from Codex's source. That file is one of Codex's own runtime programs and the Codex app keeps it running. Opening it for reading works; opening it for writing fails with exactly this error, as Windows does for any running program. The read and execute permission the check is validating is already present on the file. So the check appears to open a running program for writing.",
+      "shown_without_gearshift": "codex sandbox cmd /c type <file> fails with 'windows sandbox failed: helper_unknown_error: setup refresh had errors'. The same command with -c windows.sandbox=\"unelevated\" prints the file.",
+      "gearshift_now": "gearshift doctor warns; the composer explains it and labels each refused command. Gearshift reads only what Codex wrote to its own sandbox log and starts nothing to find out.",
+      "not_fixed_here": true
+    },
+    "fresh_install": {
+      "how": "The downloadable zip, extracted and installed with its own installer into an empty profile: USERPROFILE, APPDATA, LOCALAPPDATA and CODEX_HOME all pointed at a temporary folder holding only a copy of the Codex program. No Node and no npm on the path.",
+      "installer_exit": 0,
+      "plugin_registered_with_codex": true,
+      "hooks_trusted_by_installer": false,
+      "shortcuts_created": {
+        "startup": true,
+        "start_menu": true,
+        "startup_folder_existed_beforehand": false
+      },
+      "helper_started": true,
+      "local_page": {
+        "status": 200,
+        "composer_present": true,
+        "pairing_offered": false
+      },
+      "status": {
+        "version": "0.4.0",
+        "mode": "off",
+        "connected": false,
+        "hook_readiness": "untrusted",
+        "main_model_routing": "composer"
+      },
+      "command_line_without_npm": "gearshift.cmd doctor and status worked with the bundled runtime",
+      "restart_from_startup_shortcut": true,
+      "uninstall": {
+        "exit": 0,
+        "runtime_removed": true,
+        "plugin_removed_from_codex": true,
+        "shortcuts_removed": true,
+        "settings_kept": true
+      },
+      "real_install_untouched": true,
+      "defects_found_and_fixed": [
+        "Windows PowerShell stopped the installer on any line Codex wrote to its error stream. On a first installation Codex writes one when asked to remove a plugin that is not there. The installer now judges Codex by exit code.",
+        "A profile with no Startup folder made the installer fail. It now asks Windows for the folder without requiring it to exist, and creates it."
+      ],
+      "not_covered": [
+        "trusting the hooks in Codex",
+        "connecting an API key",
+        "reading the model list from a signed-in Codex",
+        "a second physical computer"
+      ]
+    },
+    "start_at_sign_in": {
+      "real_profile": "Helper stopped, then the Startup shortcut opened through Explorer, outside any assistant's process tree. One helper came up and routing resumed.",
+      "fresh_profile": "Same, with the shortcut the installer had just created.",
+      "not_observed": "An actual sign-out or restart of Windows."
+    },
+    "status_after": {
+      "routing_state": "on",
+      "main_turn_selection_verified": true,
+      "decisions_selection_verified": true,
+      "host_rewrite_verified": true,
+      "native_verified": true
+    },
+    "automated_tests": 235
   }
 }

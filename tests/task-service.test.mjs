@@ -430,3 +430,18 @@ test("runtime evidence: a main turn is confirmed only from the matching thread's
   fs.appendFileSync(file, `${context(strange, "not a model name", "low")}\n`);
   assert.equal(findThreadRuntime(threadId, strange, { directory: root }), null, "an unexpected model shape is not accepted as evidence");
 });
+
+test("a command Codex's sandbox refused to start is labeled; one that only printed those words is not", async (t) => {
+  const refused = harness(t, { scenario: { command_item: { command: "type notes.txt", sandbox_failure: true } } });
+  const first = await refused.service.submit({ cwd: refused.home, text: "Read the notes.", client_message_id: id() });
+  await refused.waitFor("turn_completed");
+  const blocked = refused.task(first.task_id).transcript.find((entry) => entry.kind === "command");
+  assert.deepEqual([blocked.text, blocked.status, blocked.exit_code, blocked.problem], ["type notes.txt", "failed", -1, "codex_sandbox"]);
+  assert.equal(JSON.stringify(refused.task(first.task_id)).includes("unified exec"), false, "the command output itself is never kept");
+
+  const printed = harness(t, { scenario: { command_item: { command: "type log.txt", exitCode: 0, output: "setup refresh had errors" } } });
+  const second = await printed.service.submit({ cwd: printed.home, text: "Show the log.", client_message_id: id() });
+  await printed.waitFor("turn_completed");
+  const ran = printed.task(second.task_id).transcript.find((entry) => entry.kind === "command");
+  assert.deepEqual([ran.exit_code, ran.problem], [0, undefined]);
+});

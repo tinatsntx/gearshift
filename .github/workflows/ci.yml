@@ -12,6 +12,13 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gearshift-desktop
+          path: |
+            dist/gearshift-desktop-*.zip
+            dist/gearshift-desktop-*.zip.sha256
+          if-no-files-found: error
   service:
     runs-on: ubuntu-latest
     steps:

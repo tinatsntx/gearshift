@@ -2,6 +2,8 @@
 
 Written 2026-10-07 by Claude, for Codex, at the owner's request.
 
+**Completed on 2026-10-07.** Both jobs were done and their results are recorded under "Codex rollout verification" in [RELEASE.md](RELEASE.md). This file is kept as the record of what was asked. The decisions it lists as final still stand, except that the session guidance hook's Windows launch command was repaired afterwards and trusted again by the owner.
+
 There are **two jobs**, and nothing else in this document needs doing:
 
 1. **Make sure the Gearshift plugin is updated inside the Codex app.** The files and configuration are already updated. What is left is confirming the running app shows and uses 0.4.0.

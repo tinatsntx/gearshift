@@ -418,7 +418,7 @@ test("config: the new settings have safe defaults and fixed error codes", () => 
   assert.deepEqual(validateConfig({ ...DEFAULT_CONFIG }).errors, []);
   assert.deepEqual(
     [DEFAULT_CONFIG.catalog_auto_refresh, DEFAULT_CONFIG.warm_connection, DEFAULT_CONFIG.composer_deadline_ms, DEFAULT_CONFIG.composer_approval_policy, DEFAULT_CONFIG.composer_sandbox],
-    [true, true, 1500, null, null],
+    [true, true, 3000, null, null],
     "the composer inherits approvals and sandbox from the user's own Codex settings unless told otherwise",
   );
   const bad = validateConfig({

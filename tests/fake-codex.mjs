@@ -177,7 +177,9 @@ async function runTurn(thread, turn, params, scenario) {
   if (scenario.command_item) {
     const item = { type: "commandExecution", id: "cmd-item-1", command: scenario.command_item.command, cwd: thread.cwd, status: "inProgress", exitCode: null, aggregatedOutput: null, commandActions: [] };
     notify("item/started", { threadId, turnId: turn.id, startedAtMs: Date.now(), item });
-    notify("item/completed", { threadId, turnId: turn.id, completedAtMs: Date.now(), item: { ...item, status: "completed", exitCode: scenario.command_item.exitCode ?? 0, aggregatedOutput: "ok" } });
+    notify("item/completed", { threadId, turnId: turn.id, completedAtMs: Date.now(), item: scenario.command_item.sandbox_failure
+      ? { ...item, status: "failed", exitCode: -1, aggregatedOutput: "Failed to create unified exec process: helper_unknown_error: setup refresh had errors" }
+      : { ...item, status: "completed", exitCode: scenario.command_item.exitCode ?? 0, aggregatedOutput: scenario.command_item.output ?? "ok" } });
   }
   const firstText = params.input?.find((part) => part?.type === "text")?.text ?? "";
   const reply = scenario.reply ?? `Done: ${firstText.slice(0, 24)}`;

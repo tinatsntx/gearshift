@@ -7,6 +7,15 @@ import nodeFs from "node:fs";
 
 import { isPlainObject } from "./fsutil.mjs";
 
+function endsWithBrace(chunk) {
+  for (let index = chunk.length - 1; index >= 0; index -= 1) {
+    const byte = chunk[index];
+    if (byte === 0x20 || byte === 0x0a || byte === 0x0d || byte === 0x09) continue;
+    return byte === 0x7d;
+  }
+  return false;
+}
+
 export function readStdinJson({ stdin = process.stdin, maxBytes = 4 * 1024 * 1024, timeoutMs = 2000 } = {}) {
   return new Promise((resolve) => {
     const chunks = [];
@@ -31,6 +40,15 @@ export function readStdinJson({ stdin = process.stdin, maxBytes = 4 * 1024 * 102
       bytes += chunk.length;
       if (bytes > maxBytes) return finish(null, { abandon: true });
       chunks.push(chunk);
+      // The host need not close its end of the pipe. A payload that already
+      // parses is complete, so do not wait for an end that may never come.
+      if (!endsWithBrace(chunk)) return;
+      try {
+        const value = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+        if (isPlainObject(value)) finish(value, { abandon: true });
+      } catch {
+        // Not complete yet.
+      }
     });
     stdin.on("end", () => {
       try {

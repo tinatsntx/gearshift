@@ -59,7 +59,7 @@ export const DEFAULT_CONFIG = Object.freeze({
   warm_window_minutes: 10,
   // Tasks started from the Gearshift composer. The deadline is for the single
   // Decisions call before a turn starts; it is never retried.
-  composer_deadline_ms: 1500,
+  composer_deadline_ms: 3000,
   // null inherits your Codex configuration. Otherwise untrusted | on-request | never.
   composer_approval_policy: null,
   // null inherits your Codex configuration. Otherwise read-only | workspace-write | danger-full-access.
@@ -135,7 +135,7 @@ export function validateConfig(raw) {
   }
   for (const [key, min, max] of [
     ["catalog_refresh_min_minutes", 1, 1440], ["warm_interval_s", 15, 600], ["warm_window_minutes", 0, 120],
-    ["composer_deadline_ms", 100, 3000], ["composer_idle_stop_minutes", 1, 1440],
+    ["composer_deadline_ms", 100, 5000], ["composer_idle_stop_minutes", 1, 1440],
   ]) {
     if (has(key) && !isInt(raw[key], min, max)) errors.push(`${key}_out_of_range`);
   }

@@ -21,6 +21,7 @@ import {
   createHttpsTransport, decide, describeShape, estimateCostUsd, parseChoiceAnswer, resolveEndpoint, usageFrom,
 } from "../lib/decisions.mjs";
 import { MARKETPLACE, PLUGIN_ID, checkCodexConfig } from "../lib/doctor.mjs";
+import { readSandboxHealth, sandboxAdvice } from "../lib/sandbox-health.mjs";
 import { ensureDir, readJsonFile } from "../lib/fsutil.mjs";
 import { appendLedger, readLedger, summarizeLedger } from "../lib/ledger.mjs";
 import { routeSpawn } from "../lib/router.mjs";
@@ -451,6 +452,10 @@ async function commandDoctor(dataDir) {
   } catch {
     add("FAIL", "data folder", `cannot write to ${dataDir}`);
   }
+
+  const sandbox = readSandboxHealth({ codexHome: home });
+  if (sandbox.state === "failing") add("WARN", "codex sandbox", `${sandboxAdvice(sandbox)} Try: codex sandbox cmd /c ver`);
+  else if (sandbox.state === "ok") add("PASS", "codex sandbox", "Codex's last sandbox setup succeeded");
 
   add(helper?"PASS":"WARN","helper IPC",ipcName(dataDir));
   add("INFO","data override",process.env.GEARSHIFT_DATA_DIR?"explicit GEARSHIFT_DATA_DIR":"canonical per-user store");

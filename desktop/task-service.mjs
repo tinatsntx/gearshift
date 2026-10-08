@@ -167,13 +167,22 @@ function buildResponse(request, response) {
   }
 }
 
+// Codex's wording when its Windows sandbox could not be prepared for a command.
+const SANDBOX_SETUP_FAILURE = /setup refresh had errors|windows sandbox failed/i;
+
 /** One transcript line for an item Codex reports, or null for items the composer does not show. */
 function itemEntry(item) {
   if (!item || typeof item !== "object" || typeof item.id !== "string") return null;
   const base = { id: clip(item.id, 120), status: safeWord(item.status) };
   switch (item.type) {
-    case "commandExecution":
-      return { ...base, kind: "command", text: clip(item.command, 400), exit_code: Number.isInteger(item.exitCode) ? item.exitCode : null };
+    case "commandExecution": {
+      const entry = { ...base, kind: "command", text: clip(item.command, 400), exit_code: Number.isInteger(item.exitCode) ? item.exitCode : null };
+      // The output itself is never kept. Only whether Codex's own sandbox refused to start the command.
+      // Codex reports a command it could not start as failed, with no exit code or -1.
+      // One that ran and merely printed those words has a real exit code and is not flagged.
+      if (item.status === "failed" && (entry.exit_code === null || entry.exit_code < 0) && SANDBOX_SETUP_FAILURE.test(String(item.aggregatedOutput ?? item.aggregated_output ?? "").slice(0, 4000))) entry.problem = "codex_sandbox";
+      return entry;
+    }
     case "fileChange":
       return { ...base, kind: "file_change", text: (Array.isArray(item.changes) ? item.changes : []).map((change) => clip(change?.path, 200)).filter(Boolean).slice(0, 12).join(", ") };
     case "mcpToolCall":

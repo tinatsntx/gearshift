@@ -24,6 +24,10 @@ Composer tasks add one file, `composer-tasks.json`. It holds, for each task in t
 
 Runtime evidence reads the session files Codex writes and keeps only identifiers, model and effort.
 
+To tell you when Codex's own Windows sandbox is failing, Gearshift reads the last result line of the sandbox log Codex keeps in its own folder. It keeps a category and a bare file name from it, shows them on the local page and in `gearshift doctor`, and stores nothing. It is never part of the hosted report.
+
+The installer writes `install.log` in the same folder: step names, and the reason if a step failed. No key, token or task text.
+
 Gearshift's API key is never passed to the Codex process it starts for composer tasks, so commands the agent runs cannot read it from their environment.
 
 ## The hosted service
