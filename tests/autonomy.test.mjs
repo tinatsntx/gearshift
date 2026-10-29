@@ -213,7 +213,7 @@ function guardHarness(t, { config = { mode: "auto" }, identity = "Codex Desktop:
   const dir = tmpDataDir(t);
   write(dir, "config.json", config);
   write(dir, "host.json", { executable: process.execPath, originator: "Codex Desktop" });
-  const now = fakeClock(Date.parse("2026-10-07T12:00:00.000Z"));
+  const now = fakeClock(Date.now());
   write(dir, "catalog.json", { ...catalogFixture(), fetched_at: new Date(now()).toISOString(), host_identity: identity });
   const calls = [];
   const state = { next: "Codex Desktop:2", fail: null };

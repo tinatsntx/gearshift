@@ -1,15 +1,17 @@
-# Gearshift Desktop 0.4.0 development preview
+# Gearshift Desktop 0.5.0 development source
+
+> This guide describes a future 0.5.0 package built from this source. No 0.5.0 package has been built, installed, published, or deployed. The available public package remains the 0.4.0 prerelease.
 
 Windows 10 or 11. The Codex app must be installed and signed in. A Node 24.12.0 runtime is included, so nothing else needs installing.
 
-## Install
+## Install a built 0.5.0 package
 
 1. Extract the downloaded zip anywhere, for example your Downloads folder.
 2. Double-click **Install.vbs**. Windows may ask whether to open a file from the internet; the scripts are short and readable if you want to look first.
 3. In Codex, open **/hooks**, review the three Gearshift hooks and trust them.
 4. Open **Gearshift Desktop** from Start, connect your OpenAI API key, and turn routing **On**.
 
-The installer works for the current Windows user only. It copies the runtime to `%USERPROFILE%\.gearshift\desktop\0.4.0`, registers the plugin with Codex through Codex's own plugin commands, adds a Start-menu entry, and starts the helper now and at every sign-in. It replaces an earlier `gearshift@gearshift-local` installation with one current copy. It grants no hook trust and changes no Codex setting other than the plugin entry. User settings stay in `%USERPROFILE%\.gearshift`. Fresh installations default Off.
+The installer works for the current Windows user only. It copies a built 0.5.0 runtime to `%USERPROFILE%\.gearshift\desktop\0.5.0`, registers the plugin with Codex through Codex's own plugin commands, adds a Start-menu entry, and starts the helper now and at every sign-in. It replaces an earlier `gearshift@gearshift-local` installation with one current copy. It grants no hook trust and changes no Codex setting other than the plugin entry. User settings stay in `%USERPROFILE%\.gearshift`. Fresh installations default Off.
 
 The connection test makes one Decisions request. The saved key is protected with Windows CurrentUser encryption and is never sent to any Gearshift service. Legacy plaintext credentials are replaced only after successful encrypted readback. Each user supplies their own key; no shared publisher key exists.
 
@@ -42,7 +44,7 @@ Full-history forks and either explicit model or effort remain unchanged. Missing
 ## If something is not working
 
 - **The installer reported a failure.** The reason is in `%USERPROFILE%\.gearshift\install.log`. The usual one is that the Codex app is not installed or has never been opened.
-- **`gearshift` is not a recognized command.** The global command is added only when npm is present. This always works: `"%USERPROFILE%\.gearshift\desktop\0.4.0\gearshift.cmd" doctor`.
+- **`gearshift` is not a recognized command.** The global command is added only when npm is present. In a built 0.5.0 runtime, this always works: `"%USERPROFILE%\.gearshift\desktop\0.5.0\gearshift.cmd" doctor`.
 - **Check everything at once.** `gearshift doctor` lists the Codex setup, hook trust, the key, the model list, the helper and Codex's sandbox, each as PASS, WARN or FAIL.
 - **Commands in a task say they did not run because Codex could not set up its Windows sandbox.** That is Codex's own sandbox failing, and it fails the same way in the Codex app. `codex sandbox cmd /c ver` shows it without Gearshift. Routing is not affected. Until Codex's setup succeeds, a task set to **Full access** runs without the sandbox; use that only for a folder and a task you trust. Gearshift reads what Codex wrote about this in its own log and never tries to change it.
 - **Subagents are not being routed.** The page lists the reason for each skipped spawn under *Why a subagent was not routed*. Waiting for an eligible subagent is normal: Gearshift creates no work.
@@ -59,11 +61,11 @@ Where it is configured, **Pair with ChatGPT** links this computer to the panel a
 
 ## Removing it
 
-**Disconnect** removes the saved key and any local pairing. It does not revoke the key in OpenAI Platform; revoke it there if needed. Double-click **Uninstall.vbs** in `%USERPROFILE%\.gearshift\desktop\0.4.0` to stop the helper, remove the plugin from Codex, remove both shortcuts and delete the runtime. Disconnect first if you want the key gone; uninstall keeps settings and encrypted credentials.
+**Disconnect** removes the saved key and any local pairing. It does not revoke the key in OpenAI Platform; revoke it there if needed. In a built 0.5.0 runtime, double-click **Uninstall.vbs** in `%USERPROFILE%\.gearshift\desktop\0.5.0` to stop the helper, remove the plugin from Codex, remove both shortcuts and delete the runtime. Disconnect first if you want the key gone; uninstall keeps settings and encrypted credentials.
 
 ## Where things are
 
-The runtime is `%USERPROFILE%\.gearshift\desktop\0.4.0`. An earlier version's folder is left in place beside it. Installation migrates physical ordinary AppData and MSIX stores, preserving recovery files. Conflicting account identities leave routing off for local resolution. `gearshift doctor` prints local data/runtime paths and the pipe; those paths never enter hosted status. An explicit `GEARSHIFT_DATA_DIR` is a diagnostic override.
+For a built 0.5.0 package, the runtime is `%USERPROFILE%\.gearshift\desktop\0.5.0`. An earlier version's folder is left in place beside it. Installation migrates physical ordinary AppData and MSIX stores, preserving recovery files. Conflicting account identities leave routing off for local resolution. `gearshift doctor` prints local data/runtime paths and the pipe; those paths never enter hosted status. An explicit `GEARSHIFT_DATA_DIR` is a diagnostic override.
 
 Hosted settings, where used, are durable revisions. A paired helper reconciles before routing after startup and passes through if reconciliation is unavailable. Settings show pending, confirmed, failed, or awaiting helper upgrade. One-shot connection and disconnect requests still expire.
 

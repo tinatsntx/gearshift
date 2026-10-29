@@ -21,9 +21,9 @@ function Invoke-GearshiftCodex([string[]]$Arguments, [switch]$Expected) {
   return $gearshiftCode
 }
 try {
-  Write-GearshiftLog 'Install 0.4.0 started'
+  Write-GearshiftLog 'Install 0.5.0 started'
   $gearshiftBase = [IO.Path]::GetFullPath((Join-Path $gearshiftData 'desktop'))
-  $gearshiftTarget = [IO.Path]::GetFullPath((Join-Path $gearshiftBase '0.4.0'))
+  $gearshiftTarget = [IO.Path]::GetFullPath((Join-Path $gearshiftBase '0.5.0'))
   if (-not $gearshiftTarget.StartsWith($gearshiftBase + '\', [StringComparison]::OrdinalIgnoreCase)) { throw 'Invalid install target' }
   if ([IO.Path]::GetFullPath($PSScriptRoot) -eq $gearshiftTarget) { throw 'Run the installer from the extracted package, outside the installed runtime' }
   New-Item -ItemType Directory -Path $gearshiftTarget -Force | Out-Null

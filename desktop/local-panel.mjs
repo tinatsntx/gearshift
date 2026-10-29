@@ -12,7 +12,7 @@ button,input,select,textarea{font:inherit;color:inherit;background:var(--bg);bor
 button{cursor:pointer}button:disabled{opacity:.55;cursor:default}button.primary{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:600}
 textarea{width:100%;box-sizing:border-box;resize:vertical}input[type=text]{width:100%;box-sizing:border-box}
 fieldset{border:1px solid var(--line);border-radius:12px;margin:16px 0;padding:12px 16px}legend{font-weight:600;padding:0 6px}
-label{display:block;margin:8px 0 4px}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.row>.grow{flex:1 1 260px}
+label{display:block;margin:8px 0 4px}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.row>.grow{flex:1 1 260px}.composer-controls{align-items:end}.composer-controls>.control{display:flex;flex:1 1 150px;flex-direction:column;gap:3px;margin:0;min-width:140px}.composer-controls>.control select{width:100%;min-width:0}.composer-controls>.effort-control{flex-basis:120px;min-width:120px}.composer-controls>#start{align-self:end;white-space:nowrap}.composer-controls>#appserver{align-self:end;min-width:0}#version{font-size:.52em;font-weight:400;white-space:nowrap}
 pre{white-space:pre-wrap;overflow-wrap:anywhere;margin:0}
 #error,.err{color:var(--bad)}
 .task{border:1px solid var(--line);border-radius:12px;background:var(--card);padding:12px 16px;margin:14px 0}
@@ -24,9 +24,10 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;margin:0}
 .entry.command pre,.entry.tool pre,.entry.file_change pre{font-family:ui-monospace,Consolas,monospace;font-size:.9rem}
 .ask{border:1px solid var(--warn);border-radius:10px;padding:10px 12px;margin:10px 0;background:var(--bg)}
 .ask pre{font-family:ui-monospace,Consolas,monospace;font-size:.9rem;margin:6px 0}
+.catalog-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px;margin:10px 0}.catalog-model{border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:var(--card)}.catalog-model strong{display:block;overflow-wrap:anywhere}.catalog-model p{margin:3px 0;font-size:.9rem}.catalog-tag,.catalog-chip{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:1px 7px;margin:3px 4px 0 0;font-size:.8rem}.catalog-tag.auto{color:var(--ok);border-color:var(--ok)}.catalog-chip{background:var(--card)}.chip-list{display:flex;gap:4px;flex-wrap:wrap;margin:6px 0}.choice-note{min-height:1.45em}
 dialog{color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:12px;width:min(680px,calc(100% - 64px));padding:20px}dialog::backdrop{background:#0008}dialog h2{margin:0 0 12px}.folder-list{max-height:40vh;overflow:auto;margin:12px 0;display:flex;flex-direction:column;gap:4px}.folder-list button{text-align:left;overflow-wrap:anywhere}
 </style>
-<h1>Gearshift Desktop</h1>
+<h1>Gearshift Desktop <span id=version class=muted></span></h1>
 <p class=lede>Automatic model and reasoning effort for Codex on this computer.</p>
 <p id=summary role=status>Loading status...</p>
 
@@ -37,12 +38,14 @@ dialog{color:var(--fg);background:var(--bg);border:1px solid var(--line);border-
 <datalist id=folders></datalist>
 <label for=task>Task</label>
 <textarea id=task rows=4 placeholder="Describe what you want done"></textarea>
-<div class=row><label for=preset style="margin:0">Model</label><select id=preset><option value="">Auto</option></select><label for=access style="margin:0">Access</label><select id=access><option value="">Your Codex default</option><option value="read-only">Read only</option><option value="workspace-write">This folder</option><option value="danger-full-access">Full access</option></select><button id=start class=primary type=button>Start task</button><span id=appserver class=muted></span></div>
+<div class="row composer-controls"><label class=control for=model>Model<select id=model><option value="">Auto (Gearshift picks)</option></select></label><label class="control effort-control" for=effort>Reasoning<select id=effort disabled><option value="">Auto</option></select></label><input id=modelOptionId type=hidden><label class=control for=access>Access<select id=access><option value="">Your Codex default</option><option value="read-only">Read only</option><option value="workspace-write">This folder</option><option value="danger-full-access">Full access</option></select></label><button id=start class=primary type=button>Start task</button><span id=appserver class=muted></span></div>
+<p id=modelChoiceNote class="muted choice-note"></p>
 <p id=accessNote class=muted></p>
 <p id=sandboxWarn class=err role=status hidden></p>
 <p id=composeError class=err role=alert></p>
 <p class=muted>Main tasks are routed here. A chat you start in the Codex app keeps the model you pick there; only its subagents are routed.</p>
 </fieldset>
+<fieldset id=modelCatalog><legend>Models on this Codex</legend><details id=modelCatalogDetails><summary id=catalogSummary role=status>Loading model catalog...</summary><p id=catalogMeta class=muted></p><p id=catalogAvailability class=muted></p><div id=catalogModels class=catalog-list></div></details><h3>Eligible for Auto</h3><p id=autoPresets class=muted></p><div id=autoPresetList class=chip-list aria-label="Auto-eligible presets"></div><div class=row><button id=catalog type=button>Refresh model list</button><span id=catalogFeedback role=status class=muted></span></div></fieldset>
 <dialog id=folderPicker aria-labelledby=folderTitle>
 <h2 id=folderTitle>Choose a workspace folder</h2>
 <div class=row><button id=folderHome type=button>Home</button><button id=folderUp type=button>Up</button></div>
@@ -54,7 +57,7 @@ dialog{color:var(--fg);background:var(--bg);border:1px solid var(--line);border-
 </dialog>
 <div id=tasks></div>
 
-<fieldset><legend>Subagent routing</legend><label><input type=checkbox id=enabled> On</label><button id=apply>Apply</button><label>Goal <select id=goal><option>balanced</option><option>quality</option><option>economy</option></select></label><p class=muted>When on, Gearshift automatically sets the model and reasoning effort of eligible new subagents before they start, in the Codex app and in tasks started here. The same switch controls Auto above.</p><p id=settingsstate></p><p id=adaptive class=muted></p><details><summary>Diagnostics</summary><p>Preview makes classification requests and records the choice without applying it; it can use API credits.</p><button id=preview>Enable preview</button><button id=catalog>Refresh model list</button><pre id=diagnostics></pre><h3>Routing evidence</h3><pre id=status></pre></details></fieldset>
+<fieldset><legend>Subagent routing</legend><label><input type=checkbox id=enabled> On</label><button id=apply>Apply</button><label>Goal <select id=goal><option>balanced</option><option>quality</option><option>economy</option></select></label><p class=muted>When on, Gearshift automatically sets the model and reasoning effort of eligible new subagents before they start, in the Codex app and in tasks started here. The same switch controls Auto above.</p><p id=settingsstate></p><p id=adaptive class=muted></p><details><summary>Diagnostics</summary><p>Preview makes classification requests and records the choice without applying it; it can use API credits.</p><button id=preview>Enable preview</button><pre id=diagnostics></pre><h3>Routing evidence</h3><pre id=status></pre></details></fieldset>
 <fieldset><legend>API connection</legend><p>Decisions classification uses your API project. Coding stays on your Codex account.</p><form id=connect><input id=key aria-label="OpenAI API key" type=password autocomplete=off placeholder="OpenAI API key" required><button>Connect securely</button></form><button id=test>Test connection</button><button id=disconnect>Disconnect</button></fieldset>
 <p id=error role=alert></p>
 <h2>Why a subagent was not routed</h2><pre id=reasons></pre>
@@ -72,7 +75,7 @@ function uuid(){return crypto.randomUUID()}
 function findCard(id){var cards=q('tasks').children;for(var i=0;i<cards.length;i+=1)if(cards[i].getAttribute('data-task')===id)return cards[i];return null}
 
 // ---- what a routing decision looks like to a person -------------------------
-var WHY={refusal:'Decisions declined to classify this task',access_denied:'your API key is not allowed to use Decisions (403)',manual_preset_unavailable:'that model is not available in this Codex',mode_off:'routing is off',no_credential:'no API key is connected',no_task_text:'sharing task text is turned off',settings_sync_pending:'settings are still being confirmed',config_invalid:'the Gearshift settings file is invalid',timeout:'Decisions did not answer in time',abstain:'Decisions was not sure',low_confidence:'Decisions was not confident enough',api_auth:'the API key was rejected',rate_limited:'rate limit or no quota on the API project',api_unavailable:'Decisions could not be reached',invalid_response:'Decisions gave an unusable answer',catalog_missing:'no model list yet',catalog_stale:'the model list is out of date',catalog_mismatch:'the model list is for another Codex version',no_eligible_candidate:'no preset is runnable here'};
+var WHY={refusal:'Decisions declined to classify this task',access_denied:'your API key is not allowed to use Decisions (403)',manual_preset_unavailable:'that model is not available in this Codex',manual_model_unavailable:'that model and reasoning pair is no longer available in this Codex',mode_off:'routing is off',no_credential:'no API key is connected',no_task_text:'sharing task text is turned off',settings_sync_pending:'settings are still being confirmed',config_invalid:'the Gearshift settings file is invalid',timeout:'Decisions did not answer in time',abstain:'Decisions was not sure',low_confidence:'Decisions was not confident enough',api_auth:'the API key was rejected',rate_limited:'rate limit or no quota on the API project',api_unavailable:'Decisions could not be reached',invalid_response:'Decisions gave an unusable answer',catalog_missing:'no model list yet',catalog_stale:'the model list is out of date',catalog_mismatch:'the model list is for another Codex version',no_eligible_candidate:'no preset is runnable here'};
 function why(reason){return WHY[reason]||words(reason)}
 function badge(r){
   if(!r)return {text:'',tone:''};
@@ -138,17 +141,70 @@ function askNode(task,request){
   (request.decisions||[]).forEach(function(decision){var b=el('button',LABEL[decision]||decision,decision==='accept'||decision==='approved'?'primary':'');b.onclick=answer({decision:decision});row.append(b)});
   box.append(row);return box;
 }
-function presetOptions(select,presets){
-  // Rebuilt only when the list itself changes, so an open menu is never closed by a refresh.
-  var key=(presets||[]).map(function(p){return p.id}).join(',');
-  if(select.getAttribute('data-presets')===key)return;
-  select.setAttribute('data-presets',key);
-  var value=select.value;select.replaceChildren();
-  var auto=el('option','Auto (Gearshift picks)');auto.value='';select.append(auto);
-  (presets||[]).forEach(function(p){var o=el('option',p.model+' · '+p.effort);o.value=p.id;select.append(o)});
-  select.value=value||'';
+var composerChoiceState={key:'',kind:'preset_id',choices:[]};
+function choiceKey(choices){return (choices||[]).map(function(choice){return [choice.id,choice.model,choice.effort,choice.display_name||'',choice.description||''].join('\u001f')}).join('\u001e')}
+function modelLabel(choice){return choice.display_name&&choice.display_name!==choice.model?choice.display_name+' ('+choice.model+')':choice.model}
+function choiceLabel(choice){return modelLabel(choice)+' · '+choice.effort}
+function choiceState(c){
+  if(Array.isArray(c&&c.manual_model_options))return {kind:'model_option_id',choices:c.manual_model_options.map(function(choice){return {id:choice.id,model:choice.model,effort:choice.effort,display_name:choice.display_name||choice.model}})};
+  return {kind:'preset_id',choices:(c&&c.presets||[]).map(function(choice){return {id:choice.id,model:choice.model,effort:choice.effort,display_name:choice.display_name||choice.model,description:choice.description||''}})};
 }
-function renderTask(task,presets){
+function choiceById(state,id){for(var i=0;i<state.choices.length;i+=1)if(state.choices[i].id===id)return state.choices[i];return null}
+function choicePayload(select){var id=select.value,kind=select.getAttribute('data-choice-kind');if(!id)return {};return kind==='model_option_id'?{model_option_id:id}:{preset_id:id}}
+function manualChoicePayload(){var id=q('modelOptionId').value,kind=q('model').getAttribute('data-choice-kind');if(!id)return {};return kind==='model_option_id'?{model_option_id:id}:{preset_id:id}}
+function optionKey(items){return items.map(function(item){return String(item.value)+'\u001f'+String(item.text)}).join('\u001e')}
+function replaceOptions(select,items,value){
+  var key=optionKey(items);
+  if(select.getAttribute('data-option-key')!==key){select.setAttribute('data-option-key',key);select.replaceChildren();items.forEach(function(item){var option=el('option',item.text);option.value=item.value;select.append(option)});}
+  if(select.value!==value)select.value=value;
+}
+function setComposerChoice(state,choice){
+  var model=q('model'),effort=q('effort'),hidden=q('modelOptionId'),note=q('modelChoiceNote');
+  if(!choice){
+    if(model.value!=='')model.value='';replaceOptions(effort,[{value:'',text:'Auto'}],'');effort.disabled=true;hidden.value='';note.textContent=state.kind==='model_option_id'?'Auto lets Gearshift choose an Auto-eligible preset. A manual choice bypasses Decisions.':'Auto lets Gearshift choose from the eligible presets.';return;
+  }
+  if(model.value!==choice.model)model.value=choice.model;
+  var choices=state.choices.filter(function(item){return item.model===choice.model});
+  replaceOptions(effort,choices.map(function(item){return {value:item.effort,text:item.effort}}),choice.effort);
+  effort.disabled=false;hidden.value=choice.id;
+  note.textContent='Manual '+choiceLabel(choice)+' is selected. It bypasses Decisions and requests this exact supported pair.';
+}
+function renderComposerChoices(c){
+  var state=choiceState(c),model=q('model'),effort=q('effort'),hidden=q('modelOptionId'),note=q('modelChoiceNote');
+  state.key=state.kind+'\u001d'+choiceKey(state.choices);
+  var previous=hidden.value,changed=model.getAttribute('data-choice-key')!==state.key;
+  composerChoiceState=state;
+  model.setAttribute('data-choice-kind',state.kind);
+  if(changed){
+    model.setAttribute('data-choice-key',state.key);
+    replaceOptions(model,[{value:'',text:'Auto (Gearshift picks)'}].concat(state.choices.filter(function(choice,index,list){return list.findIndex(function(other){return other.model===choice.model})===index}).map(function(choice){return {value:choice.model,text:modelLabel(choice)}})),previous&&choiceById(state,previous)?choiceById(state,previous).model:'');
+  }
+  var selected=choiceById(state,previous);
+  if(previous&&!selected){
+    setComposerChoice(state,null);
+    note.textContent='Your previous manual choice is no longer available in this Codex catalog. Auto is selected.';
+  }else if(selected){setComposerChoice(state,selected)}
+  else setComposerChoice(state,null);
+  model.onchange=function(){
+    if(!model.value){setComposerChoice(composerChoiceState,null);return}
+    var first=composerChoiceState.choices.find(function(choice){return choice.model===model.value});setComposerChoice(composerChoiceState,first||null);
+  };
+  effort.onchange=function(){
+    var choice=composerChoiceState.choices.find(function(item){return item.model===model.value&&item.effort===effort.value});setComposerChoice(composerChoiceState,choice||null);
+  };
+}
+function choiceOptions(select,state){
+  // Rebuilt only when the choice contents change, so an open menu is never
+  // closed by ordinary status polling. IDs, not positions, preserve a choice.
+  var key=state.kind+'\u001d'+choiceKey(state.choices),value=select.value;
+  if(select.getAttribute('data-choice-key')===key){if(value&&!choiceById(state,value))select.value='';return value&&choiceById(state,value)?value:''}
+  select.setAttribute('data-choice-key',key);select.setAttribute('data-choice-kind',state.kind);
+  select.replaceChildren();var auto=el('option','Auto (Gearshift picks)');auto.value='';select.append(auto);
+  state.choices.forEach(function(choice){var option=el('option',choiceLabel(choice));option.value=choice.id;select.append(option)});
+  select.value=value&&choiceById(state,value)?value:'';
+  return select.value;
+}
+function renderTask(task,choices){
   var id=task.task_id,card=findCard(id),fresh=!card;
   if(fresh){
     card=el('article',null,'task');card.setAttribute('data-task',id);
@@ -156,7 +212,7 @@ function renderTask(task,presets){
     var follow=el('div',null,'row follow'),box=el('textarea');box.rows=2;box.className='grow draft';box.placeholder='Send a follow-up';
     box.oninput=function(){drafts[id]=box.value};
     var pick=el('select',null,'followPreset'),sendBtn=el('button','Send','primary send');
-    sendBtn.onclick=function(){var text=box.value.trim();if(!text)return;submit({task_id:id,text:text,preset_id:pick.value||null});box.value='';drafts[id]=''};
+    sendBtn.onclick=function(){var text=box.value.trim();if(!text)return;submit(Object.assign({task_id:id,text:text},choicePayload(pick)));box.value='';drafts[id]=''};
     follow.append(box,pick,sendBtn);
     card.append(head,el('p',null,'badge'),el('p',null,'note muted'),el('div',null,'log'),el('div',null,'asks'),follow,el('div',null,'row actions'));
   }
@@ -191,7 +247,7 @@ function renderTask(task,presets){
     if(!have){var node=askNode(task,request);node.setAttribute('data-request',request.request_id);asks.append(node)}
   });
   Array.prototype.slice.call(asks.children).forEach(function(node){if(!wanted[node.getAttribute('data-request')])node.remove()});
-  presetOptions(card.querySelector('.followPreset'),presets);
+  choiceOptions(card.querySelector('.followPreset'),choices);
   var draft=card.querySelector('.draft');if(fresh&&drafts[id])draft.value=drafts[id];
   draft.placeholder=busy?'Send a follow-up (it waits for this turn to finish)':'Send a follow-up';
   var actions=card.querySelector('.actions'),offered=[];
@@ -215,6 +271,39 @@ function renderTask(task,presets){
   }
   return card;
 }
+function catalogReadiness(catalog){
+  var readiness=catalog&&catalog.readiness;
+  if(readiness===null)return {summary:'Current Codex catalog',availability:'Availability is advertised by Codex; it is not an execution test. A task badge separately reports when a started turn was verified.'};
+  var label={catalog_missing:'No model catalog yet',catalog_stale:'Model catalog is out of date',catalog_mismatch:'Model catalog belongs to a different Codex',config_invalid:'Catalog settings are invalid'}[readiness]||'Model catalog is not ready';
+  return {summary:label,availability:'Auto eligibility is unavailable until Gearshift has a current catalog for this Codex. Any manual pair the composer offers is checked again when its turn starts.'};
+}
+function renderCatalog(s){
+  var catalog=s.model_catalog,modelsNode=q('catalogModels'),autoNode=q('autoPresets'),autoList=q('autoPresetList');
+  if(!catalog){q('catalogSummary').textContent='Model catalog unavailable';q('catalogMeta').textContent='';q('catalogAvailability').textContent='Refresh the model list after Codex is available. Availability is advertised by Codex; it is not an execution test.';modelsNode.replaceChildren();autoNode.textContent='No Auto presets are available yet.';autoList.replaceChildren();return}
+  var status=catalogReadiness(catalog),manual=choiceState(s.composer_tasks||{}),models=(catalog.models||[]).filter(function(model){return model&&model.visibility==='list'}),presets=Array.isArray(catalog.presets)?catalog.presets:[];
+  q('catalogSummary').textContent=status.summary+(typeof catalog.available_count==='number'?' · '+catalog.available_count+' available model'+(catalog.available_count===1?'':'s'):'');
+  q('catalogMeta').textContent=(catalog.fetched_at?'Catalog read '+catalog.fetched_at:'Catalog read time unavailable')+(catalog.host_identity?' · host '+catalog.host_identity:'');
+  q('catalogAvailability').textContent=status.availability;
+  modelsNode.replaceChildren();
+  models.forEach(function(model){
+    var card=el('article',null,'catalog-model'),display={model:model.slug,display_name:model.display_name||model.slug};
+    card.append(el('strong',modelLabel(display)));
+    card.append(el('p','Supported reasoning: '+((model.efforts||[]).join(', ')||'not reported'),'muted'));
+    if(model.default_effort)card.append(el('p','Default reasoning: '+model.default_effort,'muted'));
+    if(manual.kind==='model_option_id'&&manual.choices.some(function(choice){return choice.model===model.slug}))card.append(el('span','Manual choice','catalog-tag'));
+    if(presets.some(function(preset){return preset.model===model.slug}))card.append(el('span','Auto eligible','catalog-tag auto'));
+    modelsNode.append(card);
+  });
+  if(!models.length)modelsNode.append(el('p','No listed models are available from this catalog.','muted'));
+  autoList.replaceChildren();
+  if(!presets.length){autoNode.textContent='No presets are eligible for Auto right now.';return}
+  var count=typeof catalog.eligible_count==='number'?catalog.eligible_count:presets.length;
+  autoNode.textContent=count+' Auto-eligible preset'+(count===1?'':'s')+'.';
+  presets.forEach(function(preset){
+    var model=models.find(function(item){return item.slug===preset.model}),display={model:preset.model,display_name:model&&model.display_name||preset.model},chip=el('span',choiceLabel({model:preset.model,display_name:display.display_name,effort:preset.effort}),'catalog-chip');
+    if(preset.description)chip.setAttribute('title',preset.description);autoList.append(chip);
+  });
+}
 function renderComposer(s){
   var c=s.composer_tasks;if(!c)return;
   var mode=s.routing_mode,note;
@@ -223,7 +312,8 @@ function renderComposer(s){
   else note="Routing is off: the turn runs on Codex's own settings unless you choose a model.";
   if(mode!=='off'&&!s.connected)note+=' No API key is connected, so Auto cannot ask Decisions yet.';
   q('composerNote').textContent=note;
-  presetOptions(q('preset'),c.presets);
+  renderComposerChoices(c);
+  var choices=composerChoiceState;
   var folders=q('folders');folders.replaceChildren();(c.recent_folders||[]).forEach(function(f){var o=el('option');o.value=f;folders.append(o)});
   if(!q('cwd').value&&c.recent_folders&&c.recent_folders[0])q('cwd').value=c.recent_folders[0];
   var a=c.app_server||{};q('appserver').textContent=a.state==='ready'?'Codex is ready':a.state==='starting'?'Starting Codex...':a.state==='failed'?'Codex could not start ('+words(a.last_failure)+')':'';
@@ -232,7 +322,7 @@ function renderComposer(s){
     seen[task.task_id]=true;
     // Deltas already included in this snapshot are dropped; later ones still apply.
     deltas[task.task_id]=(deltas[task.task_id]||[]).filter(function(d){return d.seq>c.seq});
-    var card=renderTask(task,c.presets);
+    var card=renderTask(task,choices);
     if(host.children[index]!==card)host.insertBefore(card,host.children[index]||null);
   });
   Array.prototype.slice.call(host.children).forEach(function(card){if(!seen[card.getAttribute('data-task')])card.remove()});
@@ -261,13 +351,13 @@ function submit(fields){
   savePending(pending().concat([item]));
   return deliver(item).catch(function(e){q('composeError').textContent=SUBMIT_ERR[e.message]||words(e.message)});
 }
-var SUBMIT_ERR={text_invalid:'Type a task first (up to 32,000 characters).',cwd_invalid:'That folder does not exist. Enter the full path of your project folder.',too_many_tasks:'Four tasks are already running. Wait for one to finish.',task_not_found:'That task is no longer in the list.',preset_invalid:'Pick a model from the list.',sandbox_invalid:'Pick an access level from the list.'};
+var SUBMIT_ERR={text_invalid:'Type a task first (up to 32,000 characters).',cwd_invalid:'That folder does not exist. Enter the full path of your project folder.',too_many_tasks:'Four tasks are already running. Wait for one to finish.',task_not_found:'That task is no longer in the list.',preset_invalid:'Pick a model from the list.',model_option_invalid:'That model and reasoning pair is no longer available. Refresh the model list and choose again.',manual_choice_conflict:'Choose either Auto or one manual model and reasoning pair.',sandbox_invalid:'Pick an access level from the list.'};
 q('start').onclick=async function(){
   var text=q('task').value.trim(),cwd=q('cwd').value.trim();q('composeError').textContent='';
   if(!cwd){q('composeError').textContent=SUBMIT_ERR.cwd_invalid;return}
   if(!text){q('composeError').textContent=SUBMIT_ERR.text_invalid;return}
   q('start').disabled=true;q('task').value='';
-  try{await submit({cwd:cwd,text:text,preset_id:q('preset').value||null,sandbox:q('access').value||null});if(q('composeError').textContent)q('task').value=text}finally{q('start').disabled=false}
+  try{await submit(Object.assign({cwd:cwd,text:text,sandbox:q('access').value||null},manualChoicePayload()));if(q('composeError').textContent)q('task').value=text}finally{q('start').disabled=false}
 };
 var ACCESS={'':'Uses the access level from your own Codex settings.','read-only':'Codex may read this folder and may not change anything.','workspace-write':'Codex may change files in this folder only.','danger-full-access':'Codex may read, change and run anything your account can, without a sandbox. Choose this only for work you trust.'};
 function showAccess(){q('accessNote').textContent=ACCESS[q('access').value||'']}
@@ -295,7 +385,7 @@ q('folderCancel').onclick=function(){q('folderPicker').close()};
 q('folderPicker').onclose=function(){folderRequest+=1;folderCurrent=null};
 
 // ---- status and live updates --------------------------------------------------
-async function refresh(){try{var s=await call('status');lastStatus=s;q('summary').textContent='Subagent routing: '+words(s.routing_state)+' ('+words(s.routing_reason)+')';if(!dirty){q('enabled').checked=s.routing_mode==='auto';q('goal').value=s.optimization_goal;}
+async function refresh(){try{var s=await call('status'),localVersion=typeof s.version==='string'&&s.version?'v'+s.version:'';lastStatus=s;q('version').textContent=localVersion?localVersion+' · local':'';q('summary').textContent=(localVersion?'Gearshift '+localVersion+' · local · ':'')+'Subagent routing: '+words(s.routing_state)+' ('+words(s.routing_reason)+')';if(!dirty){q('enabled').checked=s.routing_mode==='auto';q('goal').value=s.optimization_goal;}
   var proof=[];if(s.main_turn_selection_verified)proof.push('A Decisions-selected main task was verified.');if(s.decisions_selection_verified)proof.push('A Decisions-selected subagent was verified.');else if(s.host_rewrite_verified)proof.push('Subagent settings were applied and verified (a local default, not a Decisions selection).');
   q('adaptive').textContent=proof.length?proof.join(' '):'Nothing has been verified on this Codex version yet.';
   q('settingsstate').textContent=s.settings_error?'Settings failed: '+s.settings_error:(s.settings_update||s.routing_reason==='settings_sync_pending')&&s.paired?'Settings pending local/hosted reconciliation':'Settings confirmed locally';
@@ -304,7 +394,7 @@ async function refresh(){try{var s=await call('status');lastStatus=s;q('summary'
   q('reasons').textContent=Object.entries(s.passthrough_counts||{}).map(function(kv){return words(kv[0])+': '+kv[1]}).join('\n')||'No skipped spawns recorded';
   q('diagnostics').textContent=JSON.stringify({local:s.local_diagnostics,codex_session:s.composer,model_list_refresh:s.catalog_refresh,connection:s.transport},null,2);
   q('status').textContent=JSON.stringify({main_tasks:s.main_turns,subagents:s.recent,decisions_calls:s.decisions_calls},null,2);
-  renderComposer(s);return s}catch(e){q('error').textContent=e.message}}
+  renderCatalog(s);renderComposer(s);return s}catch(e){q('error').textContent=e.message}}
 function scheduleRefresh(){if(refreshTimer)return;refreshTimer=setTimeout(function(){refreshTimer=null;refresh()},40)}
 function onDelta(event){
   var d=JSON.parse(event.data),seq=Number(event.lastEventId);(deltas[d.task_id]=deltas[d.task_id]||[]).push({seq:seq,item_id:d.item_id,delta:d.delta});
@@ -324,7 +414,14 @@ function listen(after){
   stream.addEventListener('reset',function(){refresh().then(function(s){if(s&&s.composer_tasks)listen(s.composer_tasks.seq)})});
 }
 function action(id,fn){q(id).onclick=async function(){q(id).disabled=true;q('error').textContent='';try{await fn();await refresh()}catch(e){q('error').textContent=e.message}finally{q(id).disabled=false}}}
-action('apply',async function(){await call('settings',{mode:q('enabled').checked?'auto':'off',optimization_goal:q('goal').value});dirty=false});action('preview',function(){return call('settings',{mode:'dry_run'})});action('catalog',function(){return call('refresh_catalog')});action('test',function(){return call('connection_test')});action('disconnect',function(){return call('disconnect')});action('refresh',refresh);
+async function refreshCatalog(){
+  var button=q('catalog'),feedback=q('catalogFeedback');button.disabled=true;feedback.textContent='Refreshing the model list. Your manual choice will be kept if Codex still lists it.';
+  try{
+    await call('refresh_catalog');var status=await refresh(),catalog=status&&status.model_catalog;
+    feedback.textContent=catalog&&catalog.readiness===null?'Model list refreshed. Current Codex catalog is ready.':'The refresh finished, but the catalog is not ready yet. Check the catalog status above.';
+  }catch(error){feedback.textContent='Model list could not be refreshed: '+words(error.message)}finally{button.disabled=false}
+}
+action('apply',async function(){await call('settings',{mode:q('enabled').checked?'auto':'off',optimization_goal:q('goal').value});dirty=false});action('preview',function(){return call('settings',{mode:'dry_run'})});q('catalog').onclick=refreshCatalog;action('test',function(){return call('connection_test')});action('disconnect',function(){return call('disconnect')});action('refresh',refresh);
 q('connect').onsubmit=async function(e){e.preventDefault();var key=q('key').value;q('key').value='';try{await call('connect',{key:key});await refresh()}catch(err){q('error').textContent=err.message}};
 action('pair',async function(){var w=window.open('about:blank');try{var p=await call('pair');w.location=p.url}catch(e){w.close();throw e}});
 refresh().then(function(s){

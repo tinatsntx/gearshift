@@ -10,6 +10,7 @@ import nodeFs from "node:fs";
 import { dataPaths } from "./config.mjs";
 import { hostLaunch, targetHost } from "./host.mjs";
 import { isPlainObject, readJsonFile, writeFileAtomic } from "./fsutil.mjs";
+import { EFFORTS } from "./presets.mjs";
 
 export const CATALOG_REASONS = ["codex_not_found", "codex_failed", "catalog_invalid"];
 
@@ -78,17 +79,25 @@ export function parseCatalog(rawJsonText, { now = Date.now } = {}) {
   }
   if (!isPlainObject(raw) || !Array.isArray(raw.models)) throw new CatalogError("catalog_invalid");
   const models = [];
+  const seen = new Map();
   for (const item of raw.models) {
-    if (!isPlainObject(item) || typeof item.slug !== "string" || item.slug === "") continue;
+    if (!isPlainObject(item) || typeof item.slug !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9._:/-]{0,159}$/.test(item.slug)) continue;
     const levels = Array.isArray(item.supported_reasoning_levels) ? item.supported_reasoning_levels : [];
-    models.push({
+    const efforts = [...new Set(levels.map(level => isPlainObject(level) ? level.effort : level).filter(effort => EFFORTS.includes(effort)))];
+    const model = {
       slug: item.slug,
-      display_name: typeof item.display_name === "string" ? item.display_name : item.slug,
-      default_effort: typeof item.default_reasoning_level === "string" ? item.default_reasoning_level : null,
-      efforts: levels.map((level) => (isPlainObject(level) ? level.effort : level)).filter((effort) => typeof effort === "string"),
+      display_name: typeof item.display_name === "string" ? item.display_name.slice(0, 160) : item.slug,
+      default_effort: efforts.includes(item.default_reasoning_level) ? item.default_reasoning_level : null,
+      efforts,
       visibility: typeof item.visibility === "string" ? item.visibility : "list",
       supported_in_api: item.supported_in_api === true,
-    });
+    };
+    if (seen.has(model.slug)) {
+      if (JSON.stringify(seen.get(model.slug)) !== JSON.stringify(model)) throw new CatalogError("catalog_invalid");
+      continue;
+    }
+    seen.set(model.slug, model);
+    models.push(model);
   }
   if (models.length === 0) throw new CatalogError("catalog_invalid");
   return { schema_version: 1, fetched_at: new Date(now()).toISOString(), source: "codex debug models", models };

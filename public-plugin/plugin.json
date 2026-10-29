@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "gearshift",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Automatic model and reasoning-effort routing for eligible new local Codex subagents, and for tasks started from the Gearshift composer.",
   "mcpServers": "./mcp.json",
   "extensions": {

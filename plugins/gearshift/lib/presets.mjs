@@ -8,20 +8,57 @@ import { isPlainObject } from "./fsutil.mjs";
 export const EFFORTS = ["low", "medium", "high", "xhigh", "max", "ultra"];
 export const MAX_PRESETS = 12;
 
-export const DEFAULT_PRESETS = Object.freeze([
+const freezePresets = (presets) => Object.freeze(presets.map((preset) => Object.freeze(preset)));
+
+// Kept solely to recognize the shipped 0.4 defaults.  A configuration is
+// upgraded only when its entire preset list still exactly matches this list;
+// a user-authored list, including a reordered copy, is never rewritten.
+export const LEGACY_DEFAULT_PRESETS = freezePresets([
   { id: "luna_fast", model: "gpt-6-luna", effort: "low", description: "Small mechanical or inspection tasks with clear acceptance; low reasoning." },
   { id: "luna_careful", model: "gpt-6-luna", effort: "high", description: "Focused bounded work with checking; high reasoning." },
   { id: "sol_balanced", model: "gpt-6.1-sol", effort: "medium", description: "General implementation and reproducible debugging; medium reasoning." },
   { id: "sol_deep", model: "gpt-6.1-sol", effort: "xhigh", description: "Coupled changes, ambiguous investigations and demanding reviews; extra-high reasoning." },
   { id: "astra_balanced", model: "gpt-6-astra", effort: "medium", description: "Ambiguous architecture and broader reasoning; medium reasoning." },
   { id: "astra_deep", model: "gpt-6-astra", effort: "xhigh", description: "Most demanding eligible cross-system problems; extra-high reasoning." },
-].map((preset) => Object.freeze(preset)));
+]);
 
-export const DEFAULT_FALLBACK_ORDER = Object.freeze([
+// These are workload priors, not benchmark rankings.  The order is a
+// hand-authored conservative resource ladder used only when Decisions is
+// uncertain; it does not claim that one model is generally better than
+// another.  Keep user-defined ordering untouched for the same reason.
+export const DEFAULT_PRESETS = freezePresets([
+  { id: "luna_fast", model: "gpt-6-luna", effort: "low", description: "Small mechanical or inspection tasks with clear acceptance; low reasoning." },
+  { id: "luna_careful", model: "gpt-6-luna", effort: "high", description: "Focused bounded work with checking; high reasoning." },
+  { id: "sol_balanced", model: "gpt-6.1-sol", effort: "medium", description: "General implementation and reproducible debugging; medium reasoning." },
+  { id: "sol_deep", model: "gpt-6.1-sol", effort: "xhigh", description: "Coupled changes, ambiguous investigations and demanding reviews; extra-high reasoning." },
+  { id: "terra_balanced", model: "gpt-6.1-terra", effort: "medium", description: "General multi-step work using the Terra profile; medium reasoning." },
+  { id: "terra_deep", model: "gpt-6.1-terra", effort: "xhigh", description: "Cross-cutting implementation or investigation using the Terra profile; extra-high reasoning." },
+  { id: "astra_balanced", model: "gpt-6-astra", effort: "medium", description: "Ambiguous architecture and broader reasoning; medium reasoning." },
+  { id: "astra_deep", model: "gpt-6-astra", effort: "xhigh", description: "Most demanding eligible cross-system problems; extra-high reasoning." },
+]);
+
+export const LEGACY_DEFAULT_FALLBACK_ORDER = Object.freeze([
   "sol_balanced", "sol_deep", "astra_balanced", "astra_deep", "luna_careful", "luna_fast",
 ]);
 
+export const DEFAULT_FALLBACK_ORDER = Object.freeze([
+  "sol_balanced", "sol_deep", "terra_balanced", "terra_deep", "astra_balanced", "astra_deep", "luna_careful", "luna_fast",
+]);
+
 const PRESET_ID = /^[a-z][a-z0-9_]{1,31}$/;
+const CATALOG_OPTION_ID = /^catalog:[A-Za-z0-9._-]{1,128}:(low|medium|high|xhigh|max|ultra)$/;
+
+const sameJson = (left, right) => JSON.stringify(left) === JSON.stringify(right);
+
+/** True only for an untouched 0.4 default preset list. */
+export function isLegacyDefaultPresets(presets) {
+  return sameJson(presets, LEGACY_DEFAULT_PRESETS);
+}
+
+/** True only for the untouched 0.4 fallback order. */
+export function isLegacyDefaultFallbackOrder(order) {
+  return sameJson(order, LEGACY_DEFAULT_FALLBACK_ORDER);
+}
 
 /** Fixed error codes only; never echoes a value back. */
 export function validatePresets(presets) {
@@ -62,6 +99,57 @@ export function eligiblePresets(presets, catalog, { allowedModels = null } = {})
     return Array.isArray(model.efforts) && model.efforts.includes(preset.effort);
   });
   return { candidates, catalogMissing: false };
+}
+
+/** A stable identifier for an explicitly selected visible catalog pair. */
+export function catalogModelOptionId(model, effort) {
+  return `catalog:${model}:${effort}`;
+}
+
+/** A syntactically safe catalog option id. It is still matched against the catalog before use. */
+export function isCatalogModelOptionId(value) {
+  return typeof value === "string" && CATALOG_OPTION_ID.test(value);
+}
+
+/**
+ * Manual Composer choices. Unlike Auto candidates, this intentionally exposes
+ * every visible, catalog-supported pair so a user can choose a current model
+ * such as a specialist manually. Nothing returned here is ever added to
+ * Decisions' Auto candidate set.
+ */
+export function manualModelOptions(catalog, { allowedModels = null } = {}) {
+  const allowed = Array.isArray(allowedModels) ? new Set(allowedModels) : null;
+  if (!catalog || !Array.isArray(catalog.models)) return { options: [], catalogMissing: true };
+  const options = [];
+  const seen = new Set();
+  for (const model of catalog.models) {
+    // `supported_in_api` describes direct OpenAI API availability, not whether
+    // the signed-in Codex host can start this visible model. The host catalog's
+    // visibility and exact effort list are the manual-turn authority.
+    if (!model || model.visibility !== "list") continue;
+    if (typeof model.slug !== "string" || !/^[A-Za-z0-9._-]{1,128}$/.test(model.slug)) continue;
+    if (allowed && !allowed.has(model.slug)) continue;
+    const offered = new Set(Array.isArray(model.efforts) ? model.efforts : []);
+    for (const effort of EFFORTS) {
+      if (!offered.has(effort)) continue;
+      const id = catalogModelOptionId(model.slug, effort);
+      if (seen.has(id)) continue;
+      seen.add(id);
+      options.push({
+        id,
+        model: model.slug,
+        effort,
+        display_name: typeof model.display_name === "string" && model.display_name.trim() !== "" ? model.display_name.trim().slice(0, 120) : model.slug,
+      });
+    }
+  }
+  return { options, catalogMissing: false };
+}
+
+/** Resolves a manual option only when it is one the current visible catalog advertised. */
+export function manualModelOptionById(catalog, id, options = {}) {
+  if (!isCatalogModelOptionId(id)) return null;
+  return manualModelOptions(catalog, options).options.find((option) => option.id === id) ?? null;
 }
 
 // Presets are listed lightest first. That order is the only thing Gearshift

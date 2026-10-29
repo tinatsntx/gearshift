@@ -1,4 +1,6 @@
-# Gearshift 0.4.0 - open-source development preview
+# Gearshift 0.5.0 development source
+
+> **Development-only status:** this source prepares Gearshift 0.5.0. No 0.5.0 package has been built, installed, published, or deployed. The public [v0.4.0 prerelease](https://github.com/tinatsntx/gearshift/releases/tag/v0.4.0) and its assets remain unchanged.
 
 Gearshift chooses a model and **reasoning effort** for Codex work on your computer, using each user's own Decisions API key.
 
@@ -10,11 +12,11 @@ Gearshift chooses a model and **reasoning effort** for Codex work on your comput
 
 Opening Gearshift shows controls without supplying work or authorizing agents. Background routing is one persistent setting across this Windows account's local projects. Fresh or invalid configuration is effectively Off. Local Codex delegates on direct request or applicable project/skill instructions; [the documented Ultra exception applies to ChatGPT Work](https://learn.chatgpt.com/docs/agent-configuration/subagents#availability). Waiting for an eligible subagent is normal.
 
-## Install
+## Current public install (0.4.0)
 
 Windows 10 or 11, with the Codex app installed and signed in. You need your own OpenAI API key for a project that can call the Decisions API. Node is not required; the package brings its own runtime.
 
-1. Download `gearshift-desktop-0.4.0.zip` from [Releases](https://github.com/tinatsntx/gearshift/releases). Its SHA-256 is published beside it.
+1. Download `gearshift-desktop-0.4.0.zip` from [Releases](https://github.com/tinatsntx/gearshift/releases). Its SHA-256 is published beside it. There is no 0.5.0 download yet.
 2. Extract it and double-click **Install.vbs**. It installs for the current Windows user only.
 3. In Codex, open **/hooks**, review the three Gearshift hooks and trust them. The installer never does this for you.
 4. Open **Gearshift Desktop** from Start, connect your API key, and turn routing **On**.
@@ -58,12 +60,13 @@ A full installation has two plugin entries. Only the first is part of the public
 They are parts of the same product. [OpenAI currently excludes plugins containing lifecycle hooks from its public directory](https://developers.openai.com/plugins/build/plugins#bundled-mcp-servers-and-lifecycle-hooks). A manually installed Codex plugin can bundle hooks and MCP, while a future single public plugin entry would require the separately installed companion to configure [user hooks](https://learn.chatgpt.com/docs/hooks#where-codex-looks-for-hooks). That migration has not been implemented or tested.
 
 - [Live evidence for 0.4.0](docs/live-proof-0.4.0.json), [for 0.3](docs/live-proof.json), and [release notes](docs/RELEASE.md)
+- [0.5.0 development-upgrade scope and release gates](docs/UPGRADE-0.5.0.md)
 - [Windows setup](docs/INSTALL.md) and [privacy disclosure](docs/PRIVACY.md)
 - [Host compatibility](docs/HOST-COMPATIBILITY.md) and [how it is built](plugins/gearshift/docs/implementation-notes.md)
 
 ## Development
 
-Use Node 22 or newer, install dependencies with `npm ci`, and verify with `npm test`. No test touches the network or a real Codex: `tests/fake-codex.mjs` stands in for the Codex program. Build the Windows packages with `npm run build`; it writes `dist/gearshift-desktop-0.4.0.zip` and its SHA-256, and CI keeps both as an artifact of every push. Other platforms can build the hosted service and panel with `npm run build -- --service-only`. `node scripts/benchmark-decisions.mjs` makes a small, budgeted number of real Decisions calls on your own key and is never run by the tests. See [contributing](CONTRIBUTING.md). Credentials, local test output and generated packages are ignored and excluded from public artifacts. The workspace is marked `private` to prevent accidental npm publication; its source license is Apache 2.0.
+Use Node 22 or newer, install dependencies with `npm ci`, and verify with `npm test`. No test touches the network or a real Codex: `tests/fake-codex.mjs` stands in for the Codex program. A future explicit Windows build with `npm run build` writes `dist/gearshift-desktop-0.5.0.zip` and its SHA-256; this 0.5.0 source-preparation change did not run that build. CI keeps build artifacts for its own runs. Other platforms can build the hosted service and panel with `npm run build -- --service-only`. `node scripts/benchmark-decisions.mjs` makes a small, budgeted number of real Decisions calls on your own key and is never run by the tests. See [contributing](CONTRIBUTING.md). Credentials, local test output and generated packages are ignored and excluded from public artifacts. The workspace is marked `private` to prevent accidental npm publication; its source license is Apache 2.0.
 
 Every installation must connect its own OpenAI API project through the local companion. Decisions requests go directly from that computer to OpenAI; the publisher supplies no shared inference key. Coding work continues on the user's Codex account. Routing leaves either explicit model or effort unchanged, preserves full-history forks, and never changes a running turn or an active agent.
 

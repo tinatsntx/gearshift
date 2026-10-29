@@ -8,8 +8,10 @@ import {
 } from "../lib/config.mjs";
 import {
   DEFAULT_FALLBACK_ORDER, DEFAULT_PRESETS, buildUpdatedInput, eligiblePresets, forkMode, isPinned, pickFallback,
+  LEGACY_DEFAULT_FALLBACK_ORDER, LEGACY_DEFAULT_PRESETS, manualModelOptionById, manualModelOptions,
   presetById, validatePresets,
 } from "../lib/presets.mjs";
+import { cacheKey } from "../lib/cache.mjs";
 import { catalogFixture, tmpDataDir } from "./helpers.mjs";
 
 const ids = (presets) => presets.map((preset) => preset.id);
@@ -24,7 +26,7 @@ test("default presets are valid and every one is runnable on the fixture catalog
 test("presets are dropped when the model is absent, hidden, lacks the effort, or is not allowed", () => {
   const catalog = catalogFixture();
   const withoutAstra = { ...catalog, models: catalog.models.filter((model) => model.slug !== "gpt-6-astra") };
-  assert.deepEqual(ids(eligiblePresets(DEFAULT_PRESETS, withoutAstra).candidates), ["luna_fast", "luna_careful", "sol_balanced", "sol_deep"]);
+  assert.deepEqual(ids(eligiblePresets(DEFAULT_PRESETS, withoutAstra).candidates), ["luna_fast", "luna_careful", "sol_balanced", "sol_deep", "terra_balanced", "terra_deep"]);
 
   const hidden = { ...catalog, models: catalog.models.map((model) => (model.slug === "gpt-6-luna" ? { ...model, visibility: "hide" } : model)) };
   assert.ok(!ids(eligiblePresets(DEFAULT_PRESETS, hidden).candidates).includes("luna_fast"));
@@ -42,10 +44,41 @@ test("missing catalog offers no preset", () => {
   assert.equal(result.candidates.length, 0);
 });
 
+test("manual catalog options expose only current visible supported pairs, never Auto candidates", () => {
+  const catalog = catalogFixture();
+  const { options, catalogMissing } = manualModelOptions(catalog);
+  assert.equal(catalogMissing, false);
+  assert.ok(options.some((option) => option.id === "catalog:gpt-6.1-sol:ultra"));
+  assert.ok(options.some((option) => option.id === "catalog:gpt-daybreak-blue-latest:ultra"), "a visible specialist can be selected manually");
+  assert.ok(!options.some((option) => option.model === "gpt-reserve" || option.model === "codex-auto-review"), "hidden entries are never surfaced");
+  assert.ok(!options.some((option) => option.id === "catalog:gpt-6-luna:ultra"), "unsupported effort pairs are never invented");
+  assert.deepEqual(
+    manualModelOptions(catalog, { allowedModels: ["gpt-6-luna"] }).options.map((option) => option.model),
+    ["gpt-6-luna", "gpt-6-luna", "gpt-6-luna", "gpt-6-luna", "gpt-6-luna"],
+  );
+  assert.deepEqual(
+    manualModelOptionById(catalog, "catalog:gpt-daybreak-blue-latest:ultra"),
+    options.find((option) => option.id === "catalog:gpt-daybreak-blue-latest:ultra"),
+  );
+  assert.equal(manualModelOptionById(catalog, "catalog:gpt-reserve:medium"), null);
+  assert.equal(manualModelOptionById(catalog, "catalog:not-a-model:ultra"), null);
+  const hostOnly = {
+    ...catalog,
+    models: [...catalog.models, {
+      slug: "host-only-model", display_name: "Host only", visibility: "list", supported_in_api: false, efforts: ["ultra"],
+    }],
+  };
+  assert.ok(
+    manualModelOptions(hostOnly).options.some((option) => option.id === "catalog:host-only-model:ultra"),
+    "a visible Codex model remains selectable even when direct API support is false",
+  );
+  assert.deepEqual(manualModelOptions(null), { options: [], catalogMissing: true });
+});
+
 test("fallback follows the configured order and skips missing presets", () => {
   assert.equal(pickFallback(DEFAULT_PRESETS, DEFAULT_FALLBACK_ORDER).id, "sol_balanced");
   const noSol = DEFAULT_PRESETS.filter((preset) => !preset.id.startsWith("sol_"));
-  assert.equal(pickFallback(noSol, DEFAULT_FALLBACK_ORDER).id, "astra_balanced");
+  assert.equal(pickFallback(noSol, DEFAULT_FALLBACK_ORDER).id, "terra_balanced");
   assert.equal(pickFallback(noSol, ["nope"]).id, "luna_fast");
   assert.equal(pickFallback([], DEFAULT_FALLBACK_ORDER), null);
   assert.equal(presetById(DEFAULT_PRESETS, "astra_deep").model, "gpt-6-astra");
@@ -131,4 +164,35 @@ test("config validation, merge, and load", (t) => {
   assert.deepEqual(loadConfig({ dataDir }).errors, ["config_unreadable"]);
   writeDefaultConfig({ dataDir });
   assert.deepEqual(loadConfig({ dataDir }).errors, []);
+});
+
+test("only exact legacy defaults receive the vetted Terra tier, which changes the cache candidate hash", () => {
+  const legacyPresets = JSON.parse(JSON.stringify(LEGACY_DEFAULT_PRESETS));
+  const legacyFallback = [...LEGACY_DEFAULT_FALLBACK_ORDER];
+  const raw = { mode: "auto", presets: legacyPresets, fallback_order: legacyFallback };
+  const upgraded = mergeConfig(raw);
+  assert.deepEqual(ids(upgraded.presets), ids(DEFAULT_PRESETS));
+  assert.deepEqual(upgraded.fallback_order, DEFAULT_FALLBACK_ORDER);
+  assert.deepEqual(raw.presets, legacyPresets, "the compatibility upgrade does not rewrite user data");
+  assert.deepEqual(raw.fallback_order, legacyFallback);
+
+  const reordered = [...legacyPresets].reverse();
+  const custom = mergeConfig({ presets: reordered, fallback_order: [...legacyFallback].reverse() });
+  assert.deepEqual(custom.presets, reordered, "preset order is part of a user's conservative-confidence policy");
+  assert.deepEqual(custom.fallback_order, [...legacyFallback].reverse());
+  assert.deepEqual(mergeConfig({ presets: reordered, fallback_order: legacyFallback }).fallback_order, legacyFallback,
+    "a custom preset policy keeps even the previously shipped fallback order");
+
+  const customFallback = ["astra_deep", "sol_balanced"];
+  const defaultPresetsCustomFallback = mergeConfig({ presets: legacyPresets, fallback_order: customFallback });
+  assert.deepEqual(defaultPresetsCustomFallback.presets, DEFAULT_PRESETS, "the exact shipped preset list can receive the new vetted tier");
+  assert.deepEqual(defaultPresetsCustomFallback.fallback_order, customFallback, "a custom fallback is never reordered by the compatibility upgrade");
+
+  const base = {
+    inputText: "fixture task", policy: { min_confidence: 0.6 }, hostCapabilities: { models: [] },
+    promptVersion: "3", credentialFingerprint: "fixture", optimizationGoal: "balanced", scope: "subagent",
+  };
+  const oldKey = cacheKey({ ...base, candidateIds: ids(LEGACY_DEFAULT_PRESETS), candidates: LEGACY_DEFAULT_PRESETS });
+  const newKey = cacheKey({ ...base, candidateIds: ids(upgraded.presets), candidates: upgraded.presets });
+  assert.notEqual(newKey, oldKey, "a cache entry made for the old candidate set cannot be reused");
 });

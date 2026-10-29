@@ -9,7 +9,10 @@ import os from "node:os";
 import path from "node:path";
 
 import { isPlainObject, readJsonFile, writeFileAtomic } from "./fsutil.mjs";
-import { DEFAULT_FALLBACK_ORDER, DEFAULT_PRESETS, validatePresets } from "./presets.mjs";
+import {
+  DEFAULT_FALLBACK_ORDER, DEFAULT_PRESETS, isLegacyDefaultFallbackOrder, isLegacyDefaultPresets,
+  validatePresets,
+} from "./presets.mjs";
 
 export const CONFIG_SCHEMA_VERSION = 1;
 export const MODES = ["auto", "dry_run", "off"];
@@ -153,13 +156,22 @@ export function validateConfig(raw) {
   return { errors: [...new Set(errors)], warnings };
 }
 
-/** Defaults overlaid with the known keys of a validated raw config. */
+/**
+ * Defaults overlaid with the known keys of a validated raw config.
+ *
+ * The 0.5 Auto tier adds vetted Terra presets. We apply that only to an exact
+ * 0.4 shipped default list/order, in memory and without rewriting the file.
+ * That gives an untouched installation the new safe defaults while preserving
+ * every custom preset, its deliberate ordering, and every explicit pin.
+ */
 export function mergeConfig(raw) {
   const merged = { ...DEFAULT_CONFIG };
   if (isPlainObject(raw)) {
     for (const key of Object.keys(DEFAULT_CONFIG)) {
       if (Object.hasOwn(raw, key)) merged[key] = raw[key];
     }
+    if (Object.hasOwn(raw, "presets") && isLegacyDefaultPresets(raw.presets)) merged.presets = DEFAULT_PRESETS;
+    if ((!Object.hasOwn(raw, "presets") || isLegacyDefaultPresets(raw.presets)) && Object.hasOwn(raw, "fallback_order") && isLegacyDefaultFallbackOrder(raw.fallback_order)) merged.fallback_order = DEFAULT_FALLBACK_ORDER;
   }
   if (typeof merged.convert_full_forks_to !== "string") merged.convert_full_forks_to = String(merged.convert_full_forks_to);
   return merged;

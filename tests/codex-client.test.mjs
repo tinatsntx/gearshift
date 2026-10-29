@@ -13,6 +13,7 @@ import { eligiblePresets, DEFAULT_PRESETS } from "../plugins/gearshift/lib/prese
 import { catalogReadiness } from "../plugins/gearshift/lib/catalog.mjs";
 import { readHost } from "../plugins/gearshift/lib/host.mjs";
 import { readLedger } from "../plugins/gearshift/lib/ledger.mjs";
+import { VERSION } from "../plugins/gearshift/lib/version.mjs";
 import { fakeClock, tmpDataDir } from "../plugins/gearshift/tests/helpers.mjs";
 
 const FAKE_CODEX = path.join(path.dirname(fileURLToPath(import.meta.url)), "fake-codex.mjs");
@@ -37,7 +38,7 @@ function client(t, fake, extra = {}) {
   const exits = [];
   const instance = createCodexClient({
     command: process.execPath, args: [FAKE_CODEX, "app-server"], env: fake.env,
-    clientInfo: { name: "gearshift", title: "Gearshift Desktop", version: "0.4.0" },
+    clientInfo: { name: "gearshift", title: "Gearshift Desktop", version: VERSION },
     onNotification: (message) => notifications.push(message),
     onRequest: (message) => requests.push(message),
     onExit: (info) => exits.push(info),
@@ -152,7 +153,7 @@ test("supervisor helpers: the user agent and the model list", () => {
   const given = { PATH: "p", GEARSHIFT_DATA_DIR: "d", GEARSHIFT_OPENAI_API_KEY: "k", GEARSHIFT_NATIVE_ACCEPTANCE: "{}", GEARSHIFT_DECISIONS_ENDPOINT: "http://127.0.0.1:1" };
   assert.deepEqual(codexEnvironment(given), { PATH: "p", GEARSHIFT_DATA_DIR: "d" }, "Codex never inherits Gearshift's key or test switches");
   assert.equal(given.GEARSHIFT_OPENAI_API_KEY, "k", "the helper's own environment is untouched");
-  assert.deepEqual(parseUserAgent("gearshift/0.162.0-alpha.2 (Windows 10.0.26300; x86_64) xterm-256color (gearshift; 0.4.0)"), { originator: "gearshift", version: "0.162.0-alpha.2" });
+  assert.deepEqual(parseUserAgent(`gearshift/0.162.0-alpha.2 (Windows 10.0.26300; x86_64) xterm-256color (gearshift; ${VERSION})`), { originator: "gearshift", version: "0.162.0-alpha.2" });
   assert.deepEqual(parseUserAgent("Codex Desktop/1.2.3"), { originator: "Codex Desktop", version: "1.2.3" });
   for (const bad of [null, "", "no-slash", "/1.0"]) assert.deepEqual(parseUserAgent(bad), { originator: null, version: null });
   const catalog = catalogFromModels([
@@ -172,7 +173,7 @@ function supervisor(t, fake, extra = {}) {
   const dataDir = tmpDataDir(t);
   const exits = [];
   const instance = createAppServerSupervisor({
-    dataDir, env: { ...fake.env, GEARSHIFT_CODEX_BIN: FAKE_CODEX, GEARSHIFT_HOST_ORIGINATOR: "Codex Desktop" }, version: "0.4.0",
+    dataDir, env: { ...fake.env, GEARSHIFT_CODEX_BIN: FAKE_CODEX, GEARSHIFT_HOST_ORIGINATOR: "Codex Desktop" }, version: VERSION,
     onExit: (info) => exits.push(info), ...extra,
   });
   // Stopping writes a last ledger row; remove the folders after that, not before.
@@ -254,7 +255,7 @@ test("supervisor: a missing or vanished program is reported with a fixed reason,
 
   const calls = [];
   const moved = createAppServerSupervisor({
-    dataDir, env: fake.env, version: "0.4.0",
+    dataDir, env: fake.env, version: VERSION,
     resolveHost: () => { calls.push("saved"); return { executable: path.join(dataDir, "old", "codex.exe"), originator: "Codex Desktop" }; },
     rediscover: () => { calls.push("rediscover"); return { executable: FAKE_CODEX, originator: "Codex Desktop" }; },
   });

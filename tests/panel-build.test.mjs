@@ -57,7 +57,7 @@ async function runPanel(statusPayload, { eventSource = false, reply } = {}) {
   const calls = [], sources = [];
   const context = {
     document, setInterval() {}, setTimeout() { return 1; }, crypto: { randomUUID: () => "11111111-2222-4333-8444-555555555555" }, window: {},
-    fetch: async (url, options) => { const body=options?.body ? JSON.parse(options.body) : null; calls.push({ url, body }); return url === "/api/status" ? { ok:true,json:async()=>statusPayload } : reply ? reply(url,body) : { ok:true,json:async()=>({status:"started",task_id:"t-1"}) }; },
+    fetch: async (url, options) => { const body=options?.body ? JSON.parse(options.body) : null; calls.push({ url, body }); return url === "/api/status" ? { ok:true,json:async()=>typeof statusPayload === "function" ? statusPayload() : statusPayload } : reply ? reply(url,body) : { ok:true,json:async()=>({status:"started",task_id:"t-1"}) }; },
     ...(eventSource ? { EventSource: function EventSource(url) { this.url = url; this.listeners = {}; this.addEventListener = (type, fn) => { this.listeners[type] = fn; }; this.close = () => {}; sources.push(this); } } : {}),
   };
   vm.runInNewContext(SCRIPT, context);
@@ -67,9 +67,24 @@ async function runPanel(statusPayload, { eventSource = false, reply } = {}) {
 }
 
 const routing = (extra = {}) => ({ status: "routed", source: "decisions", reason: "selected", preset: "luna_fast", model: "gpt-6-luna", effort: "low", applied: true, dry_run: false, follow_up: false, latency_ms: 322, decide_ms: 320, socket_reused: true, turn_id: "turn-1", effective_model: "gpt-6-luna", effective_effort: "low", verified: true, rerouted_to: null, ...extra });
-const baseStatus = (composer_tasks) => ({ routing_state: "on", routing_reason: "waiting_for_eligible_subagent", routing_mode: "auto", optimization_goal: "balanced", connected: true, passthrough_counts: {}, recent: [], main_turns: [], composer_tasks });
+const baseStatus = (composer_tasks, extra = {}) => ({ routing_state: "on", routing_reason: "waiting_for_eligible_subagent", routing_mode: "auto", optimization_goal: "balanced", connected: true, passthrough_counts: {}, recent: [], main_turns: [], composer_tasks, ...extra });
 const task = (extra = {}) => ({ task_id: "t-1", cwd: "C:\\work\\project", title: "Explain the router", status: "idle", note: null, thread_id: "th", turn_id: null, routing: routing(), turn_count: 1, pending_count: 0, requests: [], transcript: [{ id: "u1", kind: "user", text: "Explain the router" }, { id: "c1", kind: "command", text: "npm test", status: "completed", exit_code: 0 }, { id: "a1", kind: "agent", text: "It routes." }], streaming: null, created_at: 2, updated_at: 2, ...extra });
 const snapshot = (tasks, extra = {}) => ({ seq: 7, app_server: { state: "ready" }, default_model: "gpt-6.1-sol", presets: [{ id: "luna_fast", model: "gpt-6-luna", effort: "low" }, { id: "sol_deep", model: "gpt-6.1-sol", effort: "xhigh" }], active_tasks: 0, tasks, recent_folders: ["C:\\work\\project"], limits: { max_text: 32000, max_active_tasks: 4 }, ...extra });
+const manualOptions = [
+  { id: "catalog:gpt-6.1-terra:max", model: "gpt-6.1-terra", effort: "max", display_name: "GPT-6.1 Terra" },
+  { id: "catalog:gpt-6.1-terra:ultra", model: "gpt-6.1-terra", effort: "ultra", display_name: "GPT-6.1 Terra" },
+  { id: "catalog:gpt-daybreak-blue-latest:ultra", model: "gpt-daybreak-blue-latest", effort: "ultra", display_name: "GPT Daybreak Blue" },
+];
+const currentCatalog = (extra = {}) => ({
+  fetched_at: "2026-10-29T15:00:00.000Z", host_identity: "codex:0.162.0", readiness: null,
+  models: [
+    { slug: "gpt-6.1-terra", display_name: "GPT-6.1 Terra", efforts: ["max", "ultra"], default_effort: "max", visibility: "list" },
+    { slug: "gpt-daybreak-blue-latest", display_name: "GPT Daybreak Blue", efforts: ["ultra"], default_effort: "ultra", visibility: "list" },
+    { slug: "gpt-hidden-reserve", display_name: "Hidden reserve", efforts: ["low"], default_effort: "low", visibility: "hide" },
+  ],
+  presets: [{ id: "terra_max", model: "gpt-6.1-terra", effort: "max", description: "Difficult work." }],
+  available_count: 2, eligible_count: 1, ...extra,
+});
 
 test("Browse navigates and selects a workspace without starting or preparing a task",async()=>{
   const root="C:\\work",child=root+"\\<project>";
@@ -124,6 +139,7 @@ test("the routing badge says plainly what happened, in every case", async () => 
   assert.equal(badge({ status: "passthrough", source: "none", reason: "mode_off", model: null, effort: null, verified: null, effective_model: "gpt-6.1-sol", effective_effort: "low" }).text, "Routing off · Codex's own settings · ran as gpt-6.1-sol · low");
   assert.deepEqual({ ...badge({ status: "passthrough", source: "none", reason: "no_credential", model: null, effort: null, turn_id: null }) }, { text: "Not routed: no API key is connected · Codex's own settings", tone: "warn" });
   assert.deepEqual({ ...badge({ status: "blocked", source: "none", reason: "refusal", model: null, effort: null, turn_id: null }) }, { text: "Not started: Decisions declined to classify this task", tone: "bad" });
+  assert.equal(badge({ status: "blocked", source: "none", reason: "manual_model_unavailable", model: null, effort: null, turn_id: null }).text, "Not started: that model and reasoning pair is no longer available in this Codex");
   assert.deepEqual({ ...badge({ verified: false, effective_model: "gpt-6.1-sol", effective_effort: "high" }) }, { text: "Auto-selected gpt-6-luna · low · 320 ms (Decisions) · but ran as gpt-6.1-sol · high", tone: "warn" });
   assert.equal(badge({ verified: false, effective_model: null, effective_effort: null }).text, "Auto-selected gpt-6-luna · low · 320 ms (Decisions) · not verified");
   assert.equal(badge({ verified: null, effective_model: null, effective_effort: null }).text, "Auto-selected gpt-6-luna · low · 320 ms (Decisions) · checking");
@@ -182,7 +198,8 @@ test("starting a task sends one identified message, and the notes match the rout
   const { byId, calls } = await runPanel(baseStatus(snapshot([])));
   byId.cwd.value = "C:\\work\\project";
   byId.task.value = "  Fix the flaky test.  ";
-  byId.preset.value = "sol_deep";
+  byId.model.value = "gpt-6.1-sol";
+  byId.model.onchange();
   await byId.start.onclick();
   const sent = calls.find((call) => call.url === "/api/compose/submit");
   assert.deepEqual(sent.body, { client_message_id: "11111111-2222-4333-8444-555555555555", cwd: "C:\\work\\project", text: "Fix the flaky test.", preset_id: "sol_deep", sandbox: null });
@@ -209,6 +226,94 @@ test("starting a task sends one identified message, and the notes match the rout
   assert.match(off.byId.composerNote.textContent, /^Routing is off/);
   const noKey = await runPanel({ ...baseStatus(snapshot([])), connected: false });
   assert.match(noKey.byId.composerNote.textContent, /No API key is connected/);
+});
+
+test("the current catalog clearly separates advertised availability, Auto presets, and manual max or ultra choices", async () => {
+  const composer = snapshot([], { manual_model_options: manualOptions });
+  const { byId, calls } = await runPanel(baseStatus(composer, { version: "0.5.0", model_catalog: currentCatalog() }));
+  assert.equal(byId.version.textContent, "v0.5.0 · local");
+  assert.match(byId.summary.textContent, /^Gearshift v0.5.0 · local · Subagent routing:/);
+  assert.match(byId.catalogSummary.textContent, /^Current Codex catalog · 2 available models$/);
+  assert.equal(byId.catalogMeta.textContent, "Catalog read 2026-10-29T15:00:00.000Z · host codex:0.162.0");
+  assert.match(byId.catalogAvailability.textContent, /advertised by Codex; it is not an execution test/);
+  assert.equal(byId.catalogModels.children.length, 2, "non-listed catalog rows are not shown");
+  assert.match(byId.catalogModels.children[0].textContent, /GPT-6[.]1 Terra \(gpt-6[.]1-terra\)/);
+  assert.match(byId.catalogModels.children[0].textContent, /Manual choice/);
+  assert.match(byId.catalogModels.children[0].textContent, /Auto eligible/);
+  assert.match(byId.catalogModels.children[1].textContent, /GPT Daybreak Blue/);
+  assert.doesNotMatch(byId.catalogModels.textContent, /Hidden reserve/);
+  assert.equal(byId.autoPresets.textContent, "1 Auto-eligible preset.");
+  assert.equal(byId.autoPresetList.children[0].textContent, "GPT-6.1 Terra (gpt-6.1-terra) · max");
+  assert.equal(byId.autoPresetList.children[0].getAttribute("title"), "Difficult work.");
+  assert.deepEqual(byId.model.children.map((option) => option.textContent), ["Auto (Gearshift picks)", "GPT-6.1 Terra (gpt-6.1-terra)", "GPT Daybreak Blue (gpt-daybreak-blue-latest)"]);
+  assert.equal(byId.effort.disabled, true);
+
+  byId.model.value = "gpt-daybreak-blue-latest";
+  byId.model.onchange();
+  assert.equal(byId.modelOptionId.value, "catalog:gpt-daybreak-blue-latest:ultra", "the submission keeps the catalog's stable pair ID");
+  assert.deepEqual(byId.effort.children.map((option) => option.textContent), ["ultra"]);
+  assert.match(byId.modelChoiceNote.textContent, /bypasses Decisions/);
+  byId.cwd.value = "C:\\work\\project";
+  byId.task.value = "Review the model API.";
+  await byId.start.onclick();
+  assert.deepEqual(calls.find((call) => call.url === "/api/compose/submit").body, {
+    client_message_id: "11111111-2222-4333-8444-555555555555", cwd: "C:\\work\\project", text: "Review the model API.", sandbox: null,
+    model_option_id: "catalog:gpt-daybreak-blue-latest:ultra",
+  });
+});
+
+test("manual selection survives catalog refreshes by ID and safely falls back only when its pair disappears", async () => {
+  let payload = baseStatus(snapshot([], { manual_model_options: manualOptions }), { model_catalog: currentCatalog() });
+  const { byId, context } = await runPanel(() => payload);
+  byId.model.value = "gpt-6.1-terra";
+  byId.model.onchange();
+  byId.effort.value = "ultra";
+  byId.effort.onchange();
+  assert.equal(byId.modelOptionId.value, "catalog:gpt-6.1-terra:ultra");
+
+  const chosenEffortOptions = [...byId.effort.children];
+  await context.refresh();
+  assert.strictEqual(byId.effort.children[0], chosenEffortOptions[0], "an unchanged status update keeps the reasoning options in place");
+  assert.strictEqual(byId.effort.children[1], chosenEffortOptions[1]);
+  assert.equal(byId.modelOptionId.value, "catalog:gpt-6.1-terra:ultra");
+
+  byId.model.value = "";
+  byId.model.onchange();
+  const autoEffortOption = byId.effort.children[0];
+  await context.refresh();
+  assert.strictEqual(byId.effort.children[0], autoEffortOption, "Auto keeps its option node across polling too");
+  assert.equal(byId.modelOptionId.value, "");
+
+  byId.model.value = "gpt-6.1-terra";
+  byId.model.onchange();
+  byId.effort.value = "ultra";
+  byId.effort.onchange();
+
+  payload = baseStatus(snapshot([], { manual_model_options: manualOptions.map((option) => option.model === "gpt-6.1-terra" ? { ...option, display_name: "Terra, refreshed" } : option) }), { model_catalog: currentCatalog() });
+  await context.refresh();
+  assert.equal(byId.modelOptionId.value, "catalog:gpt-6.1-terra:ultra", "a relabelled option does not change the selection");
+  assert.equal(byId.model.value, "gpt-6.1-terra");
+  assert.equal(byId.effort.value, "ultra");
+
+  const withoutSelected = [manualOptions[0], manualOptions[2]];
+  payload = baseStatus(snapshot([], { manual_model_options: withoutSelected }), { model_catalog: currentCatalog() });
+  await context.refresh();
+  assert.equal(byId.modelOptionId.value, "");
+  assert.equal(byId.model.value, "");
+  assert.equal(byId.effort.disabled, true);
+  assert.match(byId.modelChoiceNote.textContent, /no longer available.*Auto is selected/);
+});
+
+test("model refresh provides local progress and result feedback without a network dependency", async () => {
+  const payload = baseStatus(snapshot([], { manual_model_options: manualOptions }), { model_catalog: currentCatalog() });
+  const { byId, calls } = await runPanel(payload, { reply: async (url) => {
+    assert.equal(url, "/api/refresh_catalog");
+    return { ok: true, json: async () => ({ catalog_refreshed: true, host_identity: "codex:0.162.0" }) };
+  } });
+  await byId.catalog.onclick();
+  assert.deepEqual(calls.map((call) => call.url), ["/api/status", "/api/refresh_catalog", "/api/status"]);
+  assert.equal(byId.catalog.disabled, false);
+  assert.equal(byId.catalogFeedback.textContent, "Model list refreshed. Current Codex catalog is ready.");
 });
 
 test("pairing is offered only where hosted controls exist, and a failing Codex sandbox is explained", async () => {

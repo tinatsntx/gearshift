@@ -21,31 +21,39 @@
       "probabilities": [
         {
           "value": "luna_fast",
-          "probability": 0.0
+          "probability": 0.01
         },
         {
           "value": "luna_careful",
-          "probability": 0.0
+          "probability": 0.01
         },
         {
           "value": "sol_balanced",
-          "probability": 1.0
+          "probability": 0.9
         },
         {
           "value": "sol_deep",
-          "probability": 0.0
+          "probability": 0.02
+        },
+        {
+          "value": "terra_balanced",
+          "probability": 0.02
+        },
+        {
+          "value": "terra_deep",
+          "probability": 0.01
         },
         {
           "value": "astra_balanced",
-          "probability": 0.0
+          "probability": 0.01
         },
         {
           "value": "astra_deep",
-          "probability": 0.0
+          "probability": 0.01
         },
         {
           "value": "abstain",
-          "probability": 0.0
+          "probability": 0.01
         }
       ]
     }

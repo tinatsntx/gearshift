@@ -18,14 +18,13 @@ import { createCloudReporter } from "./cloud-report.mjs";
 import { createTaskService,TaskError } from "./task-service.mjs";
 import { VERSION } from "../plugins/gearshift/lib/version.mjs";
 import { loadCredential } from "../plugins/gearshift/lib/credentials.mjs";
-import { refreshCatalogAsync,transcriptHostIdentity } from "../plugins/gearshift/lib/catalog.mjs";
+import { transcriptHostIdentity } from "../plugins/gearshift/lib/catalog.mjs";
 import { localPanel } from "./local-panel.mjs";
 import { listFolders,FolderError } from "./folders.mjs";
 import { BASE_URL } from "./cloud-config.mjs";
 import { readSandboxHealth, sandboxAdvice } from "../plugins/gearshift/lib/sandbox-health.mjs";
 import { migrateStore } from "../plugins/gearshift/lib/migration.mjs";
 import { setLocalSettings,recoverSettings,reconcileSettings,syncState,markSettingsError } from "../plugins/gearshift/lib/settings.mjs";
-import { rediscoverHost } from "../plugins/gearshift/lib/host.mjs";
 import { readJsonFile } from "../plugins/gearshift/lib/fsutil.mjs";
 import { createCatalogGuard } from "./catalog-guard.mjs";
 let reconciled=false,token=null,browser=null,timer=null;
@@ -158,12 +157,14 @@ browser=http.createServer(async(req,res)=>{
       case "/api/disconnect":deleteCredential({dataDir});clearCache({dataDir});cloud=null;reconciled=true;fs.rmSync(cloudFile,{force:true});result={disconnected:true};break;
       case "/api/settings":result=settings(input);break;
       case "/api/refresh_catalog":{
-        const catalog=await refreshCatalogAsync({dataDir,resolveHost:rediscoverHost});result={catalog_refreshed:true,host_identity:catalog.host_identity};break;
+        const refreshed=await catalogGuard.refreshNow();
+        if(refreshed.result!=="refreshed")throw Error(refreshed.failure??"codex_failed");
+        result={catalog_refreshed:true,host_identity:refreshed.host_identity};break;
       }
       case "/api/pair":if(!siteAccess)throw Error("hosted_controls_unavailable");pendingPair=await request("/device/pair/start",{},null);result={url:`${BASE_URL}/pair/${pendingPair.ticket}`};break;
       default:throw Error("operation_invalid");
     }res.setHeader("Content-Type","application/json");res.end(JSON.stringify(result));
-  }catch(error){res.writeHead(400,{"Content-Type":"application/json"});res.end(JSON.stringify({error:error instanceof TaskError||error instanceof FolderError?error.code:["config_invalid","settings_invalid","settings_busy","settings_readback_failed","request_too_large","hosted_controls_unavailable"].includes(error.message)?error.message:"operation_failed"}));}
+  }catch(error){res.writeHead(400,{"Content-Type":"application/json"});res.end(JSON.stringify({error:error instanceof TaskError||error instanceof FolderError?error.code:["config_invalid","settings_invalid","settings_busy","settings_readback_failed","request_too_large","hosted_controls_unavailable","codex_not_found","codex_failed","catalog_invalid"].includes(error.message)?error.message:"operation_failed"}));}
 });
 await new Promise(resolve=>browser.listen(0,"127.0.0.1",resolve));
 async function handleIpc(op,payload){

@@ -42,6 +42,7 @@ async function helper(t, { config = { mode: "auto", catalog_auto_refresh: false 
   const dataDir = tmpDataDir(t), home = tmpDataDir(t);
   fs.writeFileSync(path.join(dataDir, "config.json"), JSON.stringify(config));
   fs.writeFileSync(path.join(dataDir, "catalog.json"), JSON.stringify(catalogFixture()));
+  fs.writeFileSync(path.join(dataDir, "host.json"), JSON.stringify({ executable: FAKE_CODEX, originator: "Codex Desktop" }));
   const scenarioFile = path.join(home, "scenario.json"), logFile = path.join(home, "fake.log");
   fs.writeFileSync(scenarioFile, JSON.stringify(scenario));
   const env = {

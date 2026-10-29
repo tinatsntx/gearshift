@@ -202,6 +202,35 @@ test("an explicit choice that this Codex cannot run is refused, not replaced", a
   assert.deepEqual([noList.decision.status, noList.decision.apply], ["routed", true]);
 });
 
+test("a current visible catalog pair is an explicit manual choice, while hidden or invented pairs fail closed", async () => {
+  const transport = fakeTransport();
+  const selected = await routeMainTurn(
+    turn({ manualModelOptionId: "catalog:gpt-daybreak-blue-latest:ultra" }),
+    deps({ transport, config: config({ mode: "off" }) }),
+  );
+  assert.deepEqual(
+    [selected.decision.status, selected.decision.source, selected.decision.reason, selected.decision.preset.id, selected.decision.preset.model, selected.decision.preset.effort, selected.decision.apply],
+    ["routed", "manual", "manual_override", "catalog:gpt-daybreak-blue-latest:ultra", "gpt-daybreak-blue-latest", "ultra", true],
+  );
+  assert.equal(transport.calls.length, 0, "an explicit pair never makes a Decisions call");
+
+  for (const [manualModelOptionId, extra, reason] of [
+    ["catalog:gpt-reserve:medium", {}, "manual_model_unavailable"],
+    ["catalog:not-a-model:ultra", {}, "manual_model_unavailable"],
+    ["catalog:gpt-daybreak-blue-latest:ultra", { config: config({ allowed_models: ["gpt-6-luna"] }) }, "manual_model_unavailable"],
+    ["catalog:gpt-daybreak-blue-latest:ultra", { catalog: null }, "catalog_missing"],
+  ]) {
+    const result = await routeMainTurn(turn({ manualModelOptionId }), deps(extra));
+    assert.deepEqual([result.decision.status, result.decision.reason, result.decision.apply], ["blocked", reason, false], reason);
+  }
+
+  const conflict = await routeMainTurn(
+    turn({ manualPresetId: "sol_balanced", manualModelOptionId: "catalog:gpt-6.1-sol:ultra" }),
+    deps(),
+  );
+  assert.deepEqual([conflict.decision.status, conflict.decision.reason, conflict.decision.apply], ["blocked", "manual_choice_conflict", false]);
+});
+
 test("routing off makes no call and leaves the turn on Codex's own settings", async () => {
   const transport = fakeTransport();
   const result = await routeMainTurn(turn(), deps({ transport, config: config({ mode: "off" }) }));

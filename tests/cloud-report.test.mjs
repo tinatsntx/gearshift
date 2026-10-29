@@ -26,7 +26,7 @@ function service(schema) {
   return { send, received };
 }
 
-/** What a running 0.4.0 helper reports locally, composer included. */
+/** What the running development helper reports locally, composer included. */
 const local = (t) => ({ ...status(tmpDataDir(t), { helperReachable: true, composer: { app_server: { state: "ready" }, active_tasks: 1, tasks: 1 }, catalogRefresh: { last_result: "refreshed" }, transport: { pings: 3 } }), paired: true });
 
 test("an updated hosted service receives the full report, and only the fields it is meant to", async (t) => {

@@ -25,7 +25,9 @@ import { loadCatalog } from "../plugins/gearshift/lib/catalog.mjs";
 import { SANDBOX_MODES, loadConfig } from "../plugins/gearshift/lib/config.mjs";
 import { redactSecrets, truncatePrompt } from "../plugins/gearshift/lib/decisions.mjs";
 import { appendLedger } from "../plugins/gearshift/lib/ledger.mjs";
-import { eligiblePresets } from "../plugins/gearshift/lib/presets.mjs";
+import {
+  eligiblePresets, isCatalogModelOptionId, manualModelOptions,
+} from "../plugins/gearshift/lib/presets.mjs";
 import { routeMainTurn } from "../plugins/gearshift/lib/router.mjs";
 import { createAppServerSupervisor } from "./app-server-supervisor.mjs";
 import { CodexRpcError } from "./codex-client.mjs";
@@ -353,7 +355,7 @@ export function createTaskService({
     }
   }
 
-  async function beginTurn(task, { clientMessageId, text, presetId }) {
+  async function beginTurn(task, { clientMessageId, text, presetId, modelOptionId }) {
     const followUp = task.turnCount > 0;
     task.status = "routing";
     task.note = null;
@@ -372,7 +374,7 @@ export function createTaskService({
 
     // 1. Choose the model and effort.
     const { config, errors } = loadConfig({ dataDir });
-    const manual = presetId !== null;
+    const manual = presetId !== null || modelOptionId !== null;
     let routed;
     const skipped = !manual && errors.length ? "config_invalid" : !manual && !canRoute() ? "settings_sync_pending" : null;
     if (skipped) {
@@ -381,7 +383,13 @@ export function createTaskService({
       const deps = routingDeps();
       onConnectionUse({ used: false });
       routed = await route(
-        { text, originalTask: followUp ? task.originalTask : null, defaultModel: session.defaultModel, manualPresetId: presetId },
+        {
+          text,
+          originalTask: followUp ? task.originalTask : null,
+          defaultModel: session.defaultModel,
+          manualPresetId: presetId,
+          manualModelOptionId: modelOptionId,
+        },
         { config, catalog: session.catalog, hostIdentity: session.hostIdentity, credential: deps.credential ?? null, cache: deps.cache ?? null, transport: deps.transport ?? null, endpoint: deps.endpoint, now },
       );
       if (routed.cacheDirty) { try { deps.saveCache?.(); } catch { /* a lost cache write costs one call later */ } }
@@ -609,7 +617,12 @@ export function createTaskService({
         // The follow-up is routed now, after the turn, never during it.
         const next = task.pending.shift();
         emit("queue_changed", task, { pending_count: task.pending.length });
-        void startTurn(task, { clientMessageId: next.client_message_id, text: next.text, presetId: next.preset_id ?? null }).catch(() => {});
+        void startTurn(task, {
+          clientMessageId: next.client_message_id,
+          text: next.text,
+          presetId: next.preset_id ?? null,
+          modelOptionId: next.model_option_id ?? null,
+        }).catch(() => {});
         return;
       }
       // A stopped or failed turn does not run what was queued behind it without being asked.
@@ -658,10 +671,15 @@ export function createTaskService({
   // ---- what the panel asks for ---------------------------------------------
 
   async function submit(input) {
-    const { cwd, text, client_message_id: clientMessageId, preset_id: presetId = null, task_id: taskId = null, sandbox = null } = input ?? {};
+    const {
+      cwd, text, client_message_id: clientMessageId, preset_id: presetId = null,
+      model_option_id: modelOptionId = null, task_id: taskId = null, sandbox = null,
+    } = input ?? {};
     if (typeof text !== "string" || text.trim() === "" || text.length > MAX_TASK_TEXT) throw new TaskError("text_invalid");
     if (typeof clientMessageId !== "string" || !UUID.test(clientMessageId)) throw new TaskError("client_message_id_invalid");
     if (presetId !== null && (typeof presetId !== "string" || !PRESET_ID.test(presetId))) throw new TaskError("preset_invalid");
+    if (modelOptionId !== null && !isCatalogModelOptionId(modelOptionId)) throw new TaskError("model_option_invalid");
+    if (presetId !== null && modelOptionId !== null) throw new TaskError("manual_choice_conflict");
     if (sandbox !== null && !SANDBOX_MODES.includes(sandbox)) throw new TaskError("sandbox_invalid");
 
     // The same submission arriving twice (a double click, a reloaded page) never runs twice.
@@ -693,14 +711,14 @@ export function createTaskService({
     submissionIndex.set(clientMessageId, task.id);
 
     if (isBusy(task) || task.status === "paused") {
-      task.pending.push({ client_message_id: clientMessageId, text, preset_id: presetId });
+      task.pending.push({ client_message_id: clientMessageId, text, preset_id: presetId, model_option_id: modelOptionId });
       task.submissions[clientMessageId] = { status: "queued", turn_id: null, at: now() };
       touch(task);
       emit("queue_changed", task, { pending_count: task.pending.length });
       persist();
       return { task_id: task.id, status: "queued", turn_id: null };
     }
-    return startTurn(task, { clientMessageId, text, presetId });
+    return startTurn(task, { clientMessageId, text, presetId, modelOptionId });
   }
 
   async function interrupt({ task_id: taskId, drop_queued: dropQueued = false } = {}) {
@@ -752,7 +770,12 @@ export function createTaskService({
     const next = task.pending.shift();
     task.status = "idle";
     emit("queue_changed", task, { pending_count: task.pending.length });
-    const outcome = await startTurn(task, { clientMessageId: next.client_message_id, text: next.text, presetId: next.preset_id ?? null });
+    const outcome = await startTurn(task, {
+      clientMessageId: next.client_message_id,
+      text: next.text,
+      presetId: next.preset_id ?? null,
+      modelOptionId: next.model_option_id ?? null,
+    });
     return { started: outcome.status === "started", ...outcome };
   }
 
@@ -781,12 +804,14 @@ export function createTaskService({
     const catalog = session?.catalog ?? loadCatalog({ dataDir }).catalog;
     const eligible = eligiblePresets(config.presets, catalog, { allowedModels: config.allowed_models });
     const presets = (eligible.catalogMissing ? config.presets : eligible.candidates).map((preset) => ({ id: preset.id, model: preset.model, effort: preset.effort }));
+    const manualOptions = manualModelOptions(catalog, { allowedModels: config.allowed_models }).options;
     const list = [...tasks.values()].sort((a, b) => b.createdAt - a.createdAt);
     return {
       seq: events.seq(),
       app_server: supervisor.state(),
       default_model: session?.defaultModel ?? null,
       presets,
+      manual_model_options: manualOptions,
       active_tasks: list.filter(isBusy).length,
       tasks: list.map(view),
       recent_folders: [...new Set(list.map((task) => task.cwd))].slice(0, 8),

@@ -15,20 +15,23 @@ import { loadConfig } from "../plugins/gearshift/lib/config.mjs";
 import { hostState, readHost, rediscoverHost, targetHost, trustedOriginators } from "../plugins/gearshift/lib/host.mjs";
 import { appendLedger } from "../plugins/gearshift/lib/ledger.mjs";
 
-export const REFRESH_REASONS = ["host_missing", "catalog_missing", "catalog_stale", "catalog_mismatch"];
+export const REFRESH_REASONS = ["host_missing", "catalog_missing", "catalog_stale", "catalog_mismatch", "catalog_refresh_due", "manual"];
+// Discover account/catalog additions before the seven-day safety expiry.
+export const CATALOG_REFRESH_INTERVAL_MS = 6 * 3600 * 1000;
 // A Codex that still does not match after a fresh read is some other install
 // (for example one on PATH). Reading the list again would not change that.
 export const UNRESOLVED_TTL_MS = 6 * 3600 * 1000;
 const RECHECK_SAME_IDENTITY_MS = 60_000;
 
 /** Why the saved model list should be read again, or null when it is fine. Pure. */
-export function refreshReason({ catalog, hostIdentity = null, hostExists = true, now = Date.now, maxAgeMs = 604800000, originators = null }) {
+export function refreshReason({ catalog, hostIdentity = null, hostExists = true, now = Date.now, maxAgeMs = 604800000, originators = null, refreshAfterMs = CATALOG_REFRESH_INTERVAL_MS }) {
   if (!hostExists) return "host_missing";
   if (!catalog || !Array.isArray(catalog.models)) return "catalog_missing";
   const age = now() - Date.parse(catalog.fetched_at);
   if (!Number.isFinite(age) || age < -60000 || age > maxAgeMs) return "catalog_stale";
   // Without an observed Codex there is nothing to compare the list against.
   if (hostIdentity && !identityCompatible(catalog.host_identity, hostIdentity, originators)) return "catalog_mismatch";
+  if (age >= refreshAfterMs) return "catalog_refresh_due";
   return null;
 }
 
@@ -51,7 +54,7 @@ export function createCatalogGuard({
     let catalog = null;
     try {
       // A vanished or mismatched program means Codex moved: look for it again.
-      const resolveHost = reason === "host_missing" || reason === "catalog_mismatch" ? rediscoverHost : targetHost;
+      const resolveHost = ["host_missing", "catalog_mismatch", "manual", "catalog_refresh_due"].includes(reason) ? rediscoverHost : targetHost;
       catalog = await refresh({ dataDir, env, resolveHost });
       failures = 0;
       if (hostIdentity && !identityCompatible(catalog.host_identity, hostIdentity, trustedOriginators(readHost(dataDir)))) {
@@ -63,7 +66,7 @@ export function createCatalogGuard({
       failures += 1;
     }
     last = { reason, result, failure, at: new Date(now()).toISOString(), host_identity: catalog?.host_identity ?? null };
-    ledger({ dataDir, entry: { ts: last.at, event: "catalog_refresh", reason, result, failure, host_identity: last.host_identity, latency_ms: Math.max(0, now() - started), api_called: false } });
+    try { ledger({ dataDir, entry: { ts: last.at, event: "catalog_refresh", reason, result, failure, host_identity: last.host_identity, latency_ms: Math.max(0, now() - started), api_called: false } }); } catch { /* reporting cannot invalidate a successful refresh */ }
     try { onRefreshed?.({ ...last, catalog }); } catch { /* a listener problem is not a refresh problem */ }
     return last;
   }
@@ -104,6 +107,11 @@ export function createCatalogGuard({
     /** Startup and periodic check. Resolves with the outcome, or null when nothing was needed or allowed. */
     check(hostIdentity = null) {
       try { return consider(hostIdentity) ?? null; } catch { return null; }
+    },
+    /** Explicit refresh works while routing is off and shares any running refresh. */
+    refreshNow() {
+      if (!running) running = run("manual", null).finally(() => { running = null; });
+      return running;
     },
     /** The refresh in flight, if any. For callers that can afford to wait. */
     pending() {

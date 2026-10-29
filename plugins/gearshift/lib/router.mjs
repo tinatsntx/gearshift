@@ -25,7 +25,10 @@ import {
   looksOpaque, parseResponse, redactSecrets, truncatePrompt, usageFrom,
 } from "./decisions.mjs";
 import { allowWithUpdatedInput, extractPromptText, isSpawnTool, normalizeHookInput, systemMessageOnly } from "./hookio.mjs";
-import { buildUpdatedInput, coveringPreset, eligiblePresets, forkMode, heavierOf, isPinned, pickFallback, presetById } from "./presets.mjs";
+import {
+  buildUpdatedInput, coveringPreset, eligiblePresets, forkMode, heavierOf, isPinned,
+  manualModelOptionById, pickFallback, presetById,
+} from "./presets.mjs";
 
 export const REASONS = [
   "not_spawn_tool", "mode_off", "pinned", "skipped_full_history_fork", "unknown_fork_mode",
@@ -33,6 +36,7 @@ export const REASONS = [
   "selected", "cautious", "abstain", "low_confidence", "refusal", "timeout", "api_auth", "access_denied",
   "rate_limited", "api_unavailable", "invalid_response", "request_too_large", "internal_error",
   "catalog_missing", "catalog_stale", "catalog_mismatch", "manual_override", "manual_preset_unavailable",
+  "manual_model_unavailable", "manual_choice_conflict",
 ];
 
 const nonEmpty = (value) => (typeof value === "string" && value.trim() !== "" ? value.trim() : null);
@@ -300,9 +304,11 @@ export async function routeSpawn(hookInput, deps) {
  * Chooses the model and reasoning effort for a turn the user is about to start
  * from the Gearshift composer. Never throws.
  *
- * request: { text, originalTask, defaultModel, manualPresetId }
+ * request: { text, originalTask, defaultModel, manualPresetId, manualModelOptionId }
  *   originalTask is the message that opened the conversation, for a follow-up.
- *   manualPresetId is the user's explicit choice and bypasses Decisions.
+ *   manualPresetId is the legacy configured-preset choice. manualModelOptionId
+ *   is a current visible catalog pair. Either explicit choice bypasses
+ *   Decisions; a raw model/effort is never accepted here.
  * deps: { config, catalog, credential, cache, transport, endpoint, now,
  *         hostIdentity, originators, deadlineMs, telemetry }
  *
@@ -317,7 +323,9 @@ export async function routeSpawn(hookInput, deps) {
  *   entry             a ledger row with lengths and flags, never the text
  */
 export async function routeMainTurn(request, deps) {
-  const { text = "", originalTask = null, defaultModel = null, manualPresetId = null } = request ?? {};
+  const {
+    text = "", originalTask = null, defaultModel = null, manualPresetId = null, manualModelOptionId = null,
+  } = request ?? {};
   const {
     config, catalog = null, credential = null, cache = null, transport = null,
     endpoint = ENDPOINT, now = Date.now, hostIdentity = null, originators = null,
@@ -361,12 +369,34 @@ export async function routeMainTurn(request, deps) {
   };
 
   try {
-    if (nonEmpty(manualPresetId)) {
+    const manualPreset = nonEmpty(manualPresetId);
+    const manualModelOption = nonEmpty(manualModelOptionId);
+    if (manualPreset && manualModelOption) return finish("blocked", "none", "manual_choice_conflict");
+    if (manualModelOption) {
+      // A direct catalog option is deliberately stricter than the legacy
+      // preset path: it is only meaningful when this exact current catalog is
+      // usable. This prevents stale, hidden, or invented model names from
+      // becoming an override that Codex has to reject later.
+      const readiness = catalogReadiness(catalog, {
+        hostIdentity, now, maxAgeMs: config.catalog_max_age_hours * 3600 * 1000, originators,
+      });
+      if (readiness) return finish("blocked", "none", readiness);
+      const option = manualModelOptionById(catalog, manualModelOption, { allowedModels: config.allowed_models });
+      if (!option) return finish("blocked", "none", "manual_model_unavailable");
+      const preset = {
+        id: option.id,
+        model: option.model,
+        effort: option.effort,
+        description: `Explicit catalog choice: ${option.display_name}.`,
+      };
+      return finish("routed", "manual", "manual_override", { preset });
+    }
+    if (manualPreset) {
       const { candidates, catalogMissing } = eligiblePresets(config.presets, catalog, { allowedModels: config.allowed_models });
       // With a usable model list the choice must be runnable. Without one the
       // choice is still the user's to make; Codex itself rejects a bad pair.
       const pool = catalogMissing ? config.presets : candidates;
-      const preset = presetById(pool, manualPresetId.trim());
+      const preset = presetById(pool, manualPreset);
       if (!preset) return finish("blocked", "none", "manual_preset_unavailable");
       return finish("routed", "manual", "manual_override", { preset });
     }

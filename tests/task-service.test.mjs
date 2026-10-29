@@ -14,6 +14,7 @@ import { findThreadRuntime } from "../desktop/runtime-evidence.mjs";
 import { loadRegistry, pruneRegistry, registryPath, saveRegistry } from "../desktop/task-registry.mjs";
 import { MAX_TASK_TEXT, TaskError, createTaskService } from "../desktop/task-service.mjs";
 import { LEDGER_FORBIDDEN_KEYS, readLedger } from "../plugins/gearshift/lib/ledger.mjs";
+import { VERSION } from "../plugins/gearshift/lib/version.mjs";
 import { FAKE_KEY, SENTINEL, answer, credential, fakeTransport, refusal, tmpDataDir } from "../plugins/gearshift/tests/helpers.mjs";
 
 const FAKE_CODEX = path.join(path.dirname(fileURLToPath(import.meta.url)), "fake-codex.mjs");
@@ -28,7 +29,7 @@ function harness(t, { config = { mode: "auto", warm_connection: false }, scenari
   fs.writeFileSync(scenarioFile, JSON.stringify(scenario));
   const cache = { entries: {} };
   const service = createTaskService({
-    dataDir, version: "0.4.0",
+    dataDir, version: VERSION,
     env: { ...process.env, CODEX_HOME: home, GEARSHIFT_FAKE_LOG: logFile, GEARSHIFT_FAKE_SCENARIO_FILE: scenarioFile, GEARSHIFT_CODEX_BIN: FAKE_CODEX, GEARSHIFT_HOST_ORIGINATOR: "Codex Desktop" },
     routingDeps: () => ({ credential: credential(), cache, transport }),
     verify: (threadId, turnId, options) => findThreadRuntime(threadId, turnId, { ...options, directory: path.join(home, "sessions") }),
@@ -210,6 +211,34 @@ test("declining a command stops the turn; a refusal from Decisions starts nothin
   assert.deepEqual(blocked.sent().find((entry) => entry.method === "turn/start").params.model, "gpt-6.1-sol");
 });
 
+test("the Composer exposes and applies only current visible manual catalog pairs", async (t) => {
+  const h = harness(t, { config: { mode: "off", warm_connection: false } });
+  h.service.prepare();
+  await h.waitFor("app_server", (data) => data.state?.state === "ready");
+  const options = h.service.snapshot().manual_model_options;
+  assert.ok(options.some((option) => option.id === "catalog:gpt-daybreak-blue-latest:ultra"));
+  assert.ok(!options.some((option) => option.model === "gpt-reserve" || option.model === "codex-auto-review"));
+
+  const selected = await h.service.submit({
+    cwd: h.home, text: TASK, client_message_id: id(), model_option_id: "catalog:gpt-daybreak-blue-latest:ultra",
+  });
+  assert.deepEqual(
+    [selected.status, selected.routing.source, selected.routing.reason, selected.routing.preset, selected.routing.model, selected.routing.effort, selected.routing.applied],
+    ["started", "manual", "manual_override", "catalog:gpt-daybreak-blue-latest:ultra", "gpt-daybreak-blue-latest", "ultra", true],
+  );
+  assert.equal(h.transport.calls.length, 0, "a manual pair bypasses Decisions even when Auto routing is off");
+  const request = h.sent().findLast((entry) => entry.method === "turn/start").params;
+  assert.deepEqual([request.model, request.effort], ["gpt-daybreak-blue-latest", "ultra"]);
+  await h.waitFor("turn_completed");
+
+  const hidden = await h.service.submit({
+    task_id: selected.task_id, text: TASK, client_message_id: id(), model_option_id: "catalog:gpt-reserve:medium",
+  });
+  assert.deepEqual([hidden.status, hidden.reason, hidden.routing.applied], ["blocked", "manual_model_unavailable", false]);
+  assert.deepEqual([h.task(selected.task_id).status, h.task(selected.task_id).note], ["blocked", "manual_model_unavailable"]);
+  assert.equal(h.sent().filter((entry) => entry.method === "turn/start").length, 1, "a hidden option never reaches Codex");
+});
+
 test("preview records the choice without applying it; off and missing prerequisites run on Codex's own settings", async (t) => {
   const preview = harness(t, { config: { mode: "dry_run", warm_connection: false } });
   const previewed = await preview.service.submit({ cwd: preview.home, text: TASK, client_message_id: id() });
@@ -290,6 +319,8 @@ test("bad input is refused with a fixed code before anything starts", async (t) 
   await refused({ cwd: path.join(h.home, "missing"), text: TASK, client_message_id: id() }, "cwd_invalid");
   await refused({ cwd: path.join(h.dataDir, "config.json"), text: TASK, client_message_id: id() }, "cwd_invalid");
   await refused({ cwd: h.home, text: TASK, client_message_id: id(), preset_id: "Bad Preset!" }, "preset_invalid");
+  await refused({ cwd: h.home, text: TASK, client_message_id: id(), model_option_id: "gpt-6.1-sol:ultra" }, "model_option_invalid");
+  await refused({ cwd: h.home, text: TASK, client_message_id: id(), preset_id: "sol_balanced", model_option_id: "catalog:gpt-6.1-sol:ultra" }, "manual_choice_conflict");
   await refused({ task_id: id(), text: TASK, client_message_id: id() }, "task_not_found");
   assert.equal(h.sent().length, 0, "Codex was never started");
   assert.equal(h.transport.calls.length, 0);
