@@ -2,7 +2,7 @@
 
 ## Status
 
-The local Desktop 0.5.0 development package is built and tested. It is not a release: no installer was run, the installed runtime and hook trust were not changed, and nothing was published, pushed, or deployed. No purposeful live Decisions validation or acceptance task was run. One unintended Decisions call occurred at `2026-10-29T17:28:57.297Z` when an unpinned nested test-scan child took an `abstain` fallback; it is not 0.5.0 validation.
+The local Desktop 0.5.0 development package is built, tested, and installed with explicit user approval on 2026-10-29. The installed helper and Codex plugin cache report 0.5.0; the local browser panel displays that version. Hook trust, configuration, encrypted credentials, and stored preview access were preserved. Nothing was published, pushed, or deployed to the hosted service. No purposeful live Decisions validation or acceptance task was run. One unintended Decisions call occurred during development at `2026-10-29T17:28:57.297Z` when an unpinned nested test-scan child took an `abstain` fallback; it is not 0.5.0 validation. The approved installation and its verification added no recorded Decisions calls.
 
 ## Intended local Desktop scope
 
@@ -32,7 +32,8 @@ The public `v0.4.0` prerelease, its assets and hash, the `docs/RELEASE.md` publi
 | Browser interaction | Passed against the packaged helper in an isolated store using fake Codex: visible local version, nine model choices, Terra/Ultra selection, supported Luna efforts, manual-selection retention and catalog refresh feedback. This does not prove live model execution. |
 | Windows package build | `npm run build` passed. `gearshift-desktop-0.5.0.zip`: 67,388,200 bytes; SHA-256 `70e2b859ce322c111786702904cdeea88b60ea4e2d2a1341fde864cfc3be3b0c`. |
 | Protected hook and release inputs | Source hook definitions/launcher and historical release documents unchanged. Generated 0.5.0 hook commands match the 0.4.0 package byte for byte; the 0.4.0 ZIP retains its published hash. |
-| Windows install or reinstall | Not run |
+| Windows install | Approved ZIP extracted and installed successfully at `2026-10-29T18:15:17Z`. Installed helper and cached hook files match the approved package. Configuration, encrypted credential, preview-access, pairing presence, and hook-trust fingerprints match before/after. Routing remains on; zero active composer tasks. |
+| Installed panel | Browser confirms 0.5.0, nine listed models and eight Auto presets. Browse opens and cancels correctly; Terra/Ultra is selectable. Composer was returned to Auto. No task was started and no connection test was invoked. |
 | Live host routing or live Decisions validation | No purposeful validation run; the documented unintended `abstain` fallback call is not validation |
 | Hosted deployment or embedded-panel verification | Not run |
 
@@ -50,4 +51,4 @@ This measures evidence joining, not end-to-end status latency, Decisions latency
 
 ## Remaining boundaries
 
-Local builds and offline tests are ordinary implementation work for this upgrade. Do not make any further live Decisions call under this task. A push or publication still needs the user's separate authorization, and a reinstall needs renewed direction if it becomes necessary.
+The approved local installation is complete. Do not make any further live Decisions call under this task. A push or publication still needs the user's separate authorization. Hosted deployment, live new-model execution, and new live routing acceptance remain unverified.
