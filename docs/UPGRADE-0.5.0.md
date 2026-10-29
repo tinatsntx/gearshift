@@ -2,7 +2,7 @@
 
 ## Status
 
-The local Desktop 0.5.0 development package is built, tested, and installed with explicit user approval on 2026-10-29. The installed helper and Codex plugin cache report 0.5.0; the local browser panel displays that version. Hook trust, configuration, encrypted credentials, and stored preview access were preserved. Nothing was published, pushed, or deployed to the hosted service. No purposeful live Decisions validation or acceptance task was run. One unintended Decisions call occurred during development at `2026-10-29T17:28:57.297Z` when an unpinned nested test-scan child took an `abstain` fallback; it is not 0.5.0 validation. The approved installation and its verification added no recorded Decisions calls.
+The local Desktop 0.5.0 development package is built, tested, and installed with explicit user approval on 2026-10-29. The installed helper and Codex plugin cache report 0.5.0; the local browser panel displays that version. Hook trust, configuration, encrypted credentials, and stored preview access were preserved. Source changes are delivered through `main`; no 0.5.0 release or hosted deployment has been published. No purposeful live Decisions validation or acceptance task was run. One unintended Decisions call occurred during development at `2026-10-29T17:28:57.297Z` when an unpinned nested test-scan child took an `abstain` fallback; it is not 0.5.0 validation. The approved installation and its verification added no recorded Decisions calls.
 
 ## Intended local Desktop scope
 
