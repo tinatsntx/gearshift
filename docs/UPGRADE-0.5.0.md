@@ -21,7 +21,7 @@ The hosted panel and service resource identifiers intentionally remain at `0.4.0
 
 ## Preserved 0.4.0 record
 
-The public `v0.4.0` prerelease, its assets and hash, the `docs/RELEASE.md` publication record, `docs/live-proof-0.4.0.json`, and the 0.4.0 handoff documents remain historical evidence and are not rewritten as 0.5.0 results.
+The public `v0.4.0` prerelease, its assets and hash, the `docs/RELEASE.md` publication record, and `docs/live-proof-0.4.0.json` remain historical evidence and are not rewritten as 0.5.0 results. The old handoff drafts remain in Git history; upstream's documentation cleanup removed them from the public tree, and that cleanup is preserved.
 
 ## Validation status
 
@@ -51,4 +51,4 @@ This measures evidence joining, not end-to-end status latency, Decisions latency
 
 ## Remaining boundaries
 
-The approved local installation is complete. Do not make any further live Decisions call under this task. A push or publication still needs the user's separate authorization. Hosted deployment, live new-model execution, and new live routing acceptance remain unverified.
+The approved local installation is complete. The user subsequently authorized committing, merging upstream changes, and pushing the source to `main` on 2026-10-29. The installed package retains the exact approved hash above; later source documentation corrections do not replace that package. Release publication remains a separate approval. Hosted deployment, live new-model execution, and new live routing acceptance remain unverified. No further live Decisions calls are authorized under this task.

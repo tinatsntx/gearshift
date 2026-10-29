@@ -1,6 +1,6 @@
 # Gearshift 0.5.0 development source
 
-> This local Desktop plugin source is prepared for 0.5.0 only. It does not mean a 0.5.0 runtime has been built, installed, published, or deployed; the public 0.4.0 release evidence remains historical.
+> This is the 0.5.0 development plugin. Its Windows runtime has been built, tested, and installed locally. No 0.5.0 release or hosted deployment has been published; the public 0.4.0 release evidence remains historical.
 
 Gearshift chooses a model and reasoning effort for Codex work on this computer, using your own Decisions API key.
 

@@ -1,6 +1,6 @@
 # Gearshift Desktop 0.5.0 development source
 
-> This guide describes a future 0.5.0 package built from this source. No 0.5.0 package has been built, installed, published, or deployed. The available public package remains the 0.4.0 prerelease.
+> This guide describes the 0.5.0 development package, which has been built and installed locally on Windows. It is not yet a published release. The available public package remains the 0.4.0 prerelease; see [upgrade verification](UPGRADE-0.5.0.md) for the local checks and limits.
 
 Windows 10 or 11. The Codex app must be installed and signed in. A Node 24.12.0 runtime is included, so nothing else needs installing.
 

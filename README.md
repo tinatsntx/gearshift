@@ -1,6 +1,6 @@
 # Gearshift 0.5.0 development source
 
-> **Development-only status:** this source prepares Gearshift 0.5.0. No 0.5.0 package has been built, installed, published, or deployed. The public [v0.4.0 prerelease](https://github.com/tinatsntx/gearshift/releases/tag/v0.4.0) and its assets remain unchanged.
+> **Development status:** Gearshift 0.5.0 has been built, tested, and installed locally on Windows. See the [upgrade verification record](docs/UPGRADE-0.5.0.md) for checks and limits. No 0.5.0 release or hosted deployment has been published; the public [v0.4.0 prerelease](https://github.com/tinatsntx/gearshift/releases/tag/v0.4.0) and its assets remain unchanged.
 
 Gearshift chooses a model and **reasoning effort** for Codex work on your computer, using each user's own Decisions API key.
 
@@ -70,7 +70,7 @@ They are parts of the same product. [OpenAI currently excludes plugins containin
 
 ## Development
 
-Use Node 22 or newer, install dependencies with `npm ci`, and verify with `npm test`. No test touches the network or a real Codex: `tests/fake-codex.mjs` stands in for the Codex program. A future explicit Windows build with `npm run build` writes `dist/gearshift-desktop-0.5.0.zip` and its SHA-256; this 0.5.0 source-preparation change did not run that build. CI keeps build artifacts for its own runs. Other platforms can build the hosted service and panel with `npm run build -- --service-only`. `node scripts/benchmark-decisions.mjs` makes a small, budgeted number of real Decisions calls on your own key and is never run by the tests. See [contributing](CONTRIBUTING.md). Credentials, local test output and generated packages are ignored and excluded from public artifacts. The workspace is marked `private` to prevent accidental npm publication; its source license is Apache 2.0.
+Use Node 22 or newer, install dependencies with `npm ci`, and verify with `npm test`. Tests use local fixtures and fake Codex/Decisions transports; they do not invoke a real model or the Decisions API. A Windows build with `npm run build` writes `dist/gearshift-desktop-0.5.0.zip` and its SHA-256. CI keeps build artifacts for its own runs. Other platforms can build the hosted service and panel with `npm run build -- --service-only`. `node scripts/benchmark-decisions.mjs` makes a small, budgeted number of real Decisions calls on your own key and is never run by the tests. See [contributing](CONTRIBUTING.md). Credentials, local test output and generated packages are ignored and excluded from public artifacts. The workspace is marked `private` to prevent accidental npm publication; its source license is Apache 2.0.
 
 Every installation must connect its own OpenAI API project through the local companion. Decisions requests go directly from that computer to OpenAI; the publisher supplies no shared inference key. Coding work continues on the user's Codex account. Routing leaves either explicit model or effort unchanged, preserves full-history forks, and never changes a running turn or an active agent.
 
